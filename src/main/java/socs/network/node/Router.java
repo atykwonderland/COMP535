@@ -41,6 +41,7 @@ public class Router {
 
   }
 
+  //TODO
   /**
    * attach the link to the remote router, which is identified by the given simulated ip;
    * to establish the connection via socket, you need to indentify the process IP and process Port;
@@ -53,16 +54,17 @@ public class Router {
 
   }
 
-
-  /**
+  /** NOT NEEDED ANYMORE
    * process request from the remote router. 
    * For example: when router2 tries to attach router1. Router1 can decide whether it will accept this request. 
    * The intuition is that if router2 is an unknown/anomaly router, it is always safe to reject the attached request from router2.
+   *
+   * private void requestHandler() {
+   * 
+   * }
    */
-  private void requestHandler() {
 
-  }
-
+  //TODO
   /**
    * broadcast Hello to neighbors
    */
@@ -82,6 +84,7 @@ public class Router {
 
   }
 
+  //TODO
   /**
    * output the neighbors of the routers
    */
