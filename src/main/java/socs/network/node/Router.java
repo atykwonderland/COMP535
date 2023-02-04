@@ -84,12 +84,27 @@ public class Router {
 
   }
 
-  //TODO
   /**
    * output the neighbors of the routers
    */
-  private void processNeighbors() {
-
+  private void processNeighbors() {    
+    // check if all ports are empty
+    boolean empty = true;
+    for ( Link port : ports ) {
+      if ( port != null ) {
+          empty = false;
+      }
+    } 
+    
+    if ( empty ) {
+        System.err.println("Ports are empty. No neighbors.");
+    } else {
+        for ( int i = 0; i < ports.length; i++ ) {
+            if ( ports[i] != null && ports[i].router2.status != null ) {
+                System.out.println("IP Address of neighbor " + (i + 1) + ": " + ports[i].router2.simulatedIPAddress);
+            }
+        }
+    }
   }
 
   /**
