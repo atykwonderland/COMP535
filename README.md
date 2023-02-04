@@ -6,7 +6,7 @@ A pure user-space program which simulates the major functionalities of a routing
 
 ```bash
 $mvn compile assembly:single
-$java -cp target/COMP535-{version}-SNAPSHOT-jar-with-dependencies.jar socs.network.Main conf/router2.conf
+$java -cp target/COMP535-{version}-SNAPSHOT-jar-with-dependencies.jar socs.network.Main conf/router{number}.conf
 
 ```
 

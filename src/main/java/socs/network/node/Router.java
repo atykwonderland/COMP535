@@ -2,9 +2,9 @@ package socs.network.node;
 
 import socs.network.util.Configuration;
 
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-
+import java.io.*;
+import java.net.Socket;
+import java.net.UnknownHostException;
 
 public class Router {
 
@@ -18,6 +18,18 @@ public class Router {
   public Router(Configuration config) {
     rd.simulatedIPAddress = config.getString("socs.network.router.ip");
     lsd = new LinkStateDatabase(rd);
+  }
+
+  // helper functions
+
+  static void close(ObjectInputStream in, ObjectOutputStream out, Socket socket) throws IOException {
+    if ( in != null ) {
+      in.close();
+    }
+    if ( out != null ) {
+      out.close();
+    }
+    socket.close();
   }
 
   /**
@@ -49,9 +61,74 @@ public class Router {
    * <p/>
    * NOTE: this command should not trigger link database synchronization
    */
-  private void processAttach(String processIP, short processPort,
-                             String simulatedIP, short weight) {
+  private void processAttach(String processIP, short processPort, String simulatedIP, short weight) {
+    
+    RouterDescription remote = new RouterDescription(processIP, processPort, simulatedIP);
+    
+    // case 1: processIP = simulatedIP
+    if ( simulatedIP.equals(this.rd.processIPAddress) ) {
+      System.err.println("attach denied: cannot attach to self");
+      return;
+    }
 
+    // case 2: simulatedIP is already attached to a port
+    for ( Link port : ports ) {
+      if ( port != null && port.router2.simulatedIPAddress.equals(simulatedIP) ) {
+        System.err.println("attach denied: already attached to router " + simulatedIP);
+        return;
+      }
+    }
+
+    int freePort = -1;
+    for ( int i = 0; i < 4; i++ ) {
+      if ( ports[i] != null ) {
+        freePort = i;
+        break;
+      }
+    }
+    
+    // case 3: no free ports
+    if ( freePort == -1 ) { 
+      System.err.println("attach denied: no ports available");
+      return;
+    } 
+
+    // try to establish new link between processIP <-> simulatedIP
+
+    try {
+      Socket socket = new Socket(processIP, processPort);
+      ObjectInputStream in = new ObjectInputStream(socket.getInputStream());
+      ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream());
+
+      // check connection
+      out.writeObject(processIP + " is attempting attach with " + simulatedIP + ". do you accept this request? (Y/N)");
+
+      try {
+        // if server accepts attachment, add link to ports
+        String input = (String) in.readObject();
+        // case 4: attachment is established
+        if ( input.equalsIgnoreCase("Y") ) {
+          ports[freePort] = new Link(rd, remote, weight);
+          close(in, out, socket);
+        } else {
+          System.err.println("attach response error: " + in);
+        }
+      } catch ( IOException e ) {
+        close(in, out, socket);
+        throw new RuntimeException(e);
+      } catch ( ClassNotFoundException e ) {
+        close(in, out, socket);
+        throw new RuntimeException(e);
+      }
+      // case 5: invalid IP
+    } catch ( UnknownHostException e ) {
+      System.err.println("attach error: unknown host exception");
+    } catch ( IOException e ) {
+      System.err.println("attach error: no i/o for the connection");
+      // case 6: invalid port
+    } catch ( IllegalArgumentException e ) {
+      System.err.println("attach error: port number not in allowed range");
+    }
   }
 
   /** NOT NEEDED ANYMORE
@@ -79,8 +156,7 @@ public class Router {
    * <p/>
    * This command does trigger the link database synchronization
    */
-  private void processConnect(String processIP, short processPort,
-                              String simulatedIP, short weight) {
+  private void processConnect(String processIP, short processPort, String simulatedIP, short weight) {
 
   }
 
@@ -100,6 +176,7 @@ public class Router {
         System.err.println("Ports are empty. No neighbors.");
     } else {
         for ( int i = 0; i < ports.length; i++ ) {
+            // if there's a connection on both sides, then they are neighbors (two ways)
             if ( ports[i] != null && ports[i].router2.status != null ) {
                 System.out.println("IP Address of neighbor " + (i + 1) + ": " + ports[i].router2.simulatedIPAddress);
             }
@@ -117,8 +194,7 @@ public class Router {
   /**
    * update the weight of an attached link
    */
-  private void updateWeight(String processIP, short processPort,
-                             String simulatedIP, short weight){
+  private void updateWeight(String processIP, short processPort, String simulatedIP, short weight){
 
   }
 
