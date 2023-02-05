@@ -3,8 +3,6 @@ package socs.network.node;
 import socs.network.util.Configuration;
 
 import java.io.*;
-import java.net.Socket;
-import java.net.UnknownHostException;
 
 public class Router {
 
@@ -18,18 +16,6 @@ public class Router {
   public Router(Configuration config) {
     rd.simulatedIPAddress = config.getString("socs.network.router.ip");
     lsd = new LinkStateDatabase(rd);
-  }
-
-  // helper functions
-
-  static void close(ObjectInputStream in, ObjectOutputStream out, Socket socket) throws IOException {
-    if ( in != null ) {
-      in.close();
-    }
-    if ( out != null ) {
-      out.close();
-    }
-    socket.close();
   }
 
   /**
