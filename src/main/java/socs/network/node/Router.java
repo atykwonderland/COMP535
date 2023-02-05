@@ -53,7 +53,6 @@ public class Router {
 
   }
 
-  //TODO
   /**
    * attach the link to the remote router, which is identified by the given simulated ip;
    * to establish the connection via socket, you need to indentify the process IP and process Port;
@@ -81,7 +80,7 @@ public class Router {
 
     int freePort = -1;
     for ( int i = 0; i < 4; i++ ) {
-      if ( ports[i] != null ) {
+      if ( ports[i] == null ) {
         freePort = i;
         break;
       }
@@ -93,42 +92,15 @@ public class Router {
       return;
     } 
 
-    // try to establish new link between processIP <-> simulatedIP
-
-    try {
-      Socket socket = new Socket(processIP, processPort);
-      ObjectInputStream in = new ObjectInputStream(socket.getInputStream());
-      ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream());
-
-      // check connection
-      out.writeObject(processIP + " is attempting attach with " + simulatedIP + ". do you accept this request? (Y/N)");
-
-      try {
-        // if server accepts attachment, add link to ports
-        String input = (String) in.readObject();
-        // case 4: attachment is established
-        if ( input.equalsIgnoreCase("Y") ) {
-          ports[freePort] = new Link(rd, remote, weight);
-          close(in, out, socket);
-        } else {
-          System.err.println("attach response error: " + in);
-        }
-      } catch ( IOException e ) {
-        close(in, out, socket);
-        throw new RuntimeException(e);
-      } catch ( ClassNotFoundException e ) {
-        close(in, out, socket);
-        throw new RuntimeException(e);
-      }
-      // case 5: invalid IP
-    } catch ( UnknownHostException e ) {
-      System.err.println("attach error: unknown host exception");
-    } catch ( IOException e ) {
-      System.err.println("attach error: no i/o for the connection");
-      // case 6: invalid port
-    } catch ( IllegalArgumentException e ) {
-      System.err.println("attach error: port number not in allowed range");
+    // case 4: port number out of range (0 and 65535)
+    if ( processPort < 0 || processPort > 65535 ) {
+      System.err.println("attach denied: invalid port number");
+      return;
     }
+
+    // case 5: processIP <-> simulatedIP attached
+    ports[freePort] = new Link(rd, remote, weight);
+    System.out.println("attach accepted");
   }
 
   /** NOT NEEDED ANYMORE
@@ -163,24 +135,35 @@ public class Router {
   /**
    * output the neighbors of the routers
    */
-  private void processNeighbors() {    
-    // check if all ports are empty
+  private void processNeighbors() {
+    int oneWay = 0, twoWay = 0;    
+    
+    // check if all ports are empty for current router
     boolean empty = true;
     for ( Link port : ports ) {
       if ( port != null ) {
           empty = false;
+          oneWay += 1;
       }
     } 
     
+    // case 1: all ports of processIP are empty
     if ( empty ) {
         System.err.println("Ports are empty. No neighbors.");
     } else {
         for ( int i = 0; i < ports.length; i++ ) {
-            // if there's a connection on both sides, then they are neighbors (two ways)
+            
+          // case 2: if there's a connection on both sides, then they are neighbors (two ways)
             if ( ports[i] != null && ports[i].router2.status != null ) {
                 System.out.println("IP Address of neighbor " + (i + 1) + ": " + ports[i].router2.simulatedIPAddress);
+                twoWay += 1;
             }
         }
+    }
+    
+    // case 3: only one way attaches => not neighbors
+    if ( twoWay == 0 && oneWay > 0 ) {
+      System.err.println("Ports are empty. No neighbors.");
     }
   }
 
