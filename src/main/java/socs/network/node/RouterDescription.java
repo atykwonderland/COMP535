@@ -8,4 +8,13 @@ public class RouterDescription {
   String simulatedIPAddress;
   //status of the router
   RouterStatus status;
+
+  RouterDescription(String processIPAddress, short processPortNumber, String simulatedIPAddress) {
+    this.processIPAddress = processIPAddress;
+    this.processPortNumber = processPortNumber;
+    this.simulatedIPAddress = simulatedIPAddress;
+  }
+  
+  RouterDescription() {
+  }
 }
