@@ -2,9 +2,7 @@ package socs.network.node;
 
 import socs.network.util.Configuration;
 
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-
+import java.io.*;
 
 public class Router {
 
@@ -48,21 +46,60 @@ public class Router {
    * <p/>
    * NOTE: this command should not trigger link database synchronization
    */
-  private void processAttach(String processIP, short processPort,
-                             String simulatedIP, short weight) {
+  private void processAttach(String processIP, short processPort, String simulatedIP, short weight) {
+    
+    RouterDescription remote = new RouterDescription(processIP, processPort, simulatedIP);
+    
+    // case 1: processIP = simulatedIP
+    if ( simulatedIP.equals(this.rd.processIPAddress) ) {
+      System.err.println("attach denied: cannot attach to self");
+      return;
+    }
 
+    // case 2: simulatedIP is already attached to a port
+    for ( Link port : ports ) {
+      if ( port != null && port.router2.simulatedIPAddress.equals(simulatedIP) ) {
+        System.err.println("attach denied: already attached to router " + simulatedIP);
+        return;
+      }
+    }
+
+    int freePort = -1;
+    for ( int i = 0; i < 4; i++ ) {
+      if ( ports[i] == null ) {
+        freePort = i;
+        break;
+      }
+    }
+    
+    // case 3: no free ports
+    if ( freePort == -1 ) { 
+      System.err.println("attach denied: no ports available");
+      return;
+    } 
+
+    // case 4: port number out of range (0 and 65535)
+    if ( processPort < 0 || processPort > 65535 ) {
+      System.err.println("attach denied: invalid port number");
+      return;
+    }
+
+    // case 5: processIP <-> simulatedIP attached
+    ports[freePort] = new Link(rd, remote, weight);
+    System.out.println("attach accepted");
   }
 
-
-  /**
+  /** NOT NEEDED ANYMORE
    * process request from the remote router. 
    * For example: when router2 tries to attach router1. Router1 can decide whether it will accept this request. 
    * The intuition is that if router2 is an unknown/anomaly router, it is always safe to reject the attached request from router2.
+   *
+   * private void requestHandler() {
+   * 
+   * }
    */
-  private void requestHandler() {
 
-  }
-
+  //TODO
   /**
    * broadcast Hello to neighbors
    */
@@ -77,8 +114,7 @@ public class Router {
    * <p/>
    * This command does trigger the link database synchronization
    */
-  private void processConnect(String processIP, short processPort,
-                              String simulatedIP, short weight) {
+  private void processConnect(String processIP, short processPort, String simulatedIP, short weight) {
 
   }
 
@@ -86,7 +122,35 @@ public class Router {
    * output the neighbors of the routers
    */
   private void processNeighbors() {
-
+    int oneWay = 0, twoWay = 0;    
+    
+    // check if all ports are empty for current router
+    boolean empty = true;
+    for ( Link port : ports ) {
+      if ( port != null ) {
+          empty = false;
+          oneWay += 1;
+      }
+    } 
+    
+    // case 1: all ports of processIP are empty
+    if ( empty ) {
+        System.err.println("Ports are empty. No neighbors.");
+    } else {
+        for ( int i = 0; i < ports.length; i++ ) {
+            
+          // case 2: if there's a connection on both sides, then they are neighbors (two ways)
+            if ( ports[i] != null && ports[i].router2.status != null ) {
+                System.out.println("IP Address of neighbor " + (i + 1) + ": " + ports[i].router2.simulatedIPAddress);
+                twoWay += 1;
+            }
+        }
+    }
+    
+    // case 3: only one way attaches => not neighbors
+    if ( twoWay == 0 && oneWay > 0 ) {
+      System.err.println("Ports are empty. No neighbors.");
+    }
   }
 
   /**
@@ -99,8 +163,7 @@ public class Router {
   /**
    * update the weight of an attached link
    */
-  private void updateWeight(String processIP, short processPort,
-                             String simulatedIP, short weight){
+  private void updateWeight(String processIP, short processPort, String simulatedIP, short weight){
 
   }
 
