@@ -5,6 +5,7 @@ import socs.network.util.Configuration;
 
 import java.io.*;
 import java.net.Socket;
+import java.net.UnknownHostException;
 
 public class Router {
 
@@ -108,14 +109,15 @@ public class Router {
    * create packet to be broadcast
    */
   private SOSPFPacket createPacket(Link link, short pType) {
-    SOSPFPacket p = new SOSPFPacket();
-    p.srcProcessIP = rd.processIPAddress;
-    p.srcProcessPort = rd.processPortNumber;
-    p.srcIP = rd.simulatedIPAddress;
-    p.dstIP = link.router2.simulatedIPAddress;
-    p.sospfType = pType;
-    p.routerID = rd.simulatedIPAddress;
-    p.neighborID = rd.simulatedIPAddress;
+    SOSPFPacket p = new SOSPFPacket(
+      rd.processIPAddress,
+      rd.processPortNumber,
+      rd.simulatedIPAddress,
+      link.router2.simulatedIPAddress,
+      pType,
+      rd.simulatedIPAddress,
+      rd.simulatedIPAddress
+    );
 
     // public Vector<LSA> lsaArray = null; //
     // TODO: how to populalte p.lsaArray
@@ -143,6 +145,7 @@ public class Router {
     }
     if (isEmpty) {
       System.err.println("Warning: No routers connected to current router " + rd.simulatedIPAddress + ".");
+      return;
     } 
 
     // Send HELLO to every connected router
@@ -155,7 +158,6 @@ public class Router {
 
       String serverName = ports[i].router2.processIPAddress;
       short port = ports[i].router2.processPortNumber;
-      RouterStatus R2Status = ports[i].router2.status;
 
       // Check that the ports element is not empty, otherwise skip to next array element
       if (ports[i] == null) {
@@ -179,16 +181,23 @@ public class Router {
         inFromServer = new ObjectInputStream(client.getInputStream());
         serverPacket = (SOSPFPacket) inFromServer.readObject();
 
-        if (serverPacket != null) {
+        // Check that response is a HELLO
+        if (serverPacket != null && serverPacket.sospfType == 0) {
           System.out.println("received HELLO from " + serverPacket.srcIP + ";");
+          // If HELLO received, set status of R2 as TWO_WAY
+          ports[i].router2.status = RouterStatus.TWO_WAY;
+          System.out.println("set " + serverName + " STATE to TWO_WAY");
+        } else {
+          System.out.println("HELLO packet not returned. STATE unchanged.");
         }
 
-        // Check that response is a HELLO
-        if (serverPacket.sospfType == 0) {
-          // If HELLO received, set status of R2 as TWO_WAY
-          R2Status = RouterStatus.TWO_WAY;
-          System.out.println("set " + serverName + " STATE to TWO_WAY");
-        }
+        // Respond with HELLO packet for server to set state to TWO_WAY as well
+        outToServer.writeObject(clientPacket);
+
+        // Close streams and socket
+        client.close();
+        outToServer.close();
+        inFromServer.close();
 
       } catch (UnknownHostException e) {
         // TODO Auto-generated catch block
@@ -201,7 +210,7 @@ public class Router {
         e.printStackTrace();
       }
 
-      // initialize database sychronization process LSAUPDATE
+      // TODO initialize database sychronization process LSAUPDATE
 
 
     }
