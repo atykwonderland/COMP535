@@ -119,9 +119,6 @@ public class Router {
       rd.simulatedIPAddress
     );
 
-    // public Vector<LSA> lsaArray = null; //
-    // TODO: how to populalte p.lsaArray
-
     return p;
   }
 
@@ -131,7 +128,7 @@ public class Router {
   private void processStart() {
     Socket client;
     SOSPFPacket clientPacket;
-    SOSPFPacket serverPacket;
+    SOSPFPacket serverPacket = null;
     ObjectOutputStream outToServer;
     ObjectInputStream inFromServer;
     boolean isEmpty = true;
@@ -165,11 +162,9 @@ public class Router {
       }
 
       // TODO add any other checks to the specific neighbor
-
-
       
       try {
-        // initialize the packet to broadcast to neighbors
+        // initialize the HELLO packet to broadcast to neighbors
         clientPacket = createPacket(ports[i], (short) 0);
         
         // send packet to server and wait for response
@@ -179,7 +174,15 @@ public class Router {
         outToServer.writeObject(clientPacket);
 
         inFromServer = new ObjectInputStream(client.getInputStream());
-        serverPacket = (SOSPFPacket) inFromServer.readObject();
+        try {
+          serverPacket = (SOSPFPacket) inFromServer.readObject();
+        } catch (ClassNotFoundException e) {
+          System.err.println("Packet received is not correct or cannot be used.");
+          client.close();
+          outToServer.close();
+          inFromServer.close();
+          return;
+        }
 
         // Check that response is a HELLO
         if (serverPacket != null && serverPacket.sospfType == 0) {
@@ -187,12 +190,16 @@ public class Router {
           // If HELLO received, set status of R2 as TWO_WAY
           ports[i].router2.status = RouterStatus.TWO_WAY;
           System.out.println("set " + serverName + " STATE to TWO_WAY");
+
+          // Respond with HELLO packet for server to set state to TWO_WAY as well
+          outToServer.writeObject(clientPacket);
         } else {
           System.out.println("HELLO packet not returned. STATE unchanged.");
+          client.close();
+          outToServer.close();
+          inFromServer.close();
+          return;
         }
-
-        // Respond with HELLO packet for server to set state to TWO_WAY as well
-        outToServer.writeObject(clientPacket);
 
         // Close streams and socket
         client.close();
@@ -200,18 +207,14 @@ public class Router {
         inFromServer.close();
 
       } catch (UnknownHostException e) {
-        // TODO Auto-generated catch block
-        e.printStackTrace();
+        System.err.println("Error: Socket could not be create. IP address of host could not be found.");
+        return;
       } catch (IOException e) {
-        // TODO Auto-generated catch block
-        e.printStackTrace();
-      } catch (ClassNotFoundException e) {
-        // TODO Auto-generated catch block
-        e.printStackTrace();
+        System.err.println("Error: I/O error occured during socket creation. Stream headers could not be written.");
+        return;
       }
 
       // TODO initialize database sychronization process LSAUPDATE
-
 
     }
 
