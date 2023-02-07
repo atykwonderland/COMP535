@@ -162,11 +162,6 @@ public class Router {
       String serverName = ports[i].router2.processIPAddress;
       short port = ports[i].router2.processPortNumber;
 
-      // Check that the ports element is not empty, otherwise skip to next array element
-      if (ports[i] == null) {
-        continue;
-      }
-
       // TODO add any other checks to the specific neighbor
       
       try {
