@@ -18,7 +18,13 @@ public class Router {
 
   public Router(Configuration config) {
     rd.simulatedIPAddress = config.getString("socs.network.router.ip");
+    rd.processPortNumber = config.getShort("socs.network.router.portNumber");
+    rd.processIPAddress = "127.0.0.1";
     lsd = new LinkStateDatabase(rd);
+
+    // Start server socket
+    Thread serverSim = new Thread(new ServerSimulator(this, rd.processPortNumber));
+    serverSim.start();
   }
 
   /**
