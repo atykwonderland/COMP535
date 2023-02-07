@@ -81,6 +81,8 @@ public class ServerRequestReceiver implements Runnable {
                 inFromClient.close();
                 outToClient.close();
                 lSocket.close();
+
+                System.out.print(">> ");
             }
         } catch (IOException e) {
             e.printStackTrace();
