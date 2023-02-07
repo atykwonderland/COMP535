@@ -2,6 +2,7 @@ package socs.network.node;
 
 import socs.network.message.SOSPFPacket;
 import socs.network.util.Configuration;
+import socs.network.util.MismatchedLinkException;
 
 import java.io.*;
 import java.net.Socket;
@@ -131,7 +132,7 @@ public class Router {
   /**
    * broadcast Hello to neighbors
    */
-  private void processStart() {
+  private void processStart() throws MismatchedLinkException {
     Socket client;
     SOSPFPacket clientPacket;
     SOSPFPacket serverPacket = null;
@@ -183,6 +184,12 @@ public class Router {
           outToServer.close();
           inFromServer.close();
           return;
+        } catch (ClassCastException e) {
+          System.err.println("Unexpected packet type.");
+          client.close();
+          outToServer.close();
+          inFromServer.close();
+          return;
         }
 
         // Check that response is a HELLO
@@ -213,7 +220,7 @@ public class Router {
       } catch (IOException e) {
         System.err.println("Error: I/O error occured during socket creation. Stream headers could not be written.");
         return;
-      }
+      } 
 
       // TODO initialize database sychronization process LSAUPDATE
 
@@ -263,7 +270,7 @@ public class Router {
     
     // case 3: only one way attaches => not neighbors
     if ( twoWay == 0 && oneWay > 0 ) {
-      System.err.println("Ports are empty. No neighbors.");
+      System.err.println("No neighbors.");
     }
   }
 

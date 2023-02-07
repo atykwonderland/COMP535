@@ -6,6 +6,7 @@ import java.io.ObjectOutputStream;
 import java.net.Socket;
 
 import socs.network.message.SOSPFPacket;
+import socs.network.util.MismatchedLinkException;
 
 public class ServerRequestReceiver implements Runnable {
     
@@ -44,9 +45,9 @@ public class ServerRequestReceiver implements Runnable {
                     }
                 }
                 if (!isLinked) {
-                    // If there are no links (i.e. ports array empty), return with error
-                    System.err.println("packet received from " + packetReceived.srcIP + " is not linked to this router. No further actions.");
-                    return;
+                    // If there are no links (i.e. ports array empty or no matchin simulatedIPAddress), throw exception
+                    outToClient.writeObject("MismatchedLinkException");
+                    throw new MismatchedLinkException("packet received from " + packetReceived.srcIP + " is not linked to this router. No further actions.");
                 }
 
                 // Otherwise, create HELLO packet to set for TWO_WAY
@@ -87,6 +88,8 @@ public class ServerRequestReceiver implements Runnable {
         } catch (IOException e) {
             e.printStackTrace();
         } catch (ClassNotFoundException e) {
+            e.printStackTrace();
+        } catch (MismatchedLinkException e) {
             e.printStackTrace();
         }
         
