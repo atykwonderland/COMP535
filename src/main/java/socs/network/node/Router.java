@@ -1,8 +1,12 @@
 package socs.network.node;
 
+import socs.network.message.SOSPFPacket;
 import socs.network.util.Configuration;
+import socs.network.util.MismatchedLinkException;
 
 import java.io.*;
+import java.net.Socket;
+import java.net.UnknownHostException;
 
 public class Router {
 
@@ -15,7 +19,13 @@ public class Router {
 
   public Router(Configuration config) {
     rd.simulatedIPAddress = config.getString("socs.network.router.ip");
+    rd.processPortNumber = config.getShort("socs.network.router.portNumber");
+    rd.processIPAddress = "127.0.0.1";
     lsd = new LinkStateDatabase(rd);
+
+    // Start server socket
+    Thread serverSim = new Thread(new ServerSimulator(this, rd.processPortNumber));
+    serverSim.start();
   }
 
   /**
@@ -98,12 +108,123 @@ public class Router {
    * 
    * }
    */
+  private void requestHandler() {
 
-  //TODO
+  }
+
+  /**
+   * create packet to be broadcast
+   */
+  private SOSPFPacket createPacket(Link link, short pType) {
+    SOSPFPacket p = new SOSPFPacket(
+      rd.processIPAddress,
+      rd.processPortNumber,
+      rd.simulatedIPAddress,
+      link.router2.simulatedIPAddress,
+      pType,
+      rd.simulatedIPAddress,
+      rd.simulatedIPAddress
+    );
+
+    return p;
+  }
+
   /**
    * broadcast Hello to neighbors
    */
-  private void processStart() {
+  private void processStart() throws MismatchedLinkException {
+    Socket client;
+    SOSPFPacket clientPacket;
+    SOSPFPacket serverPacket = null;
+    ObjectOutputStream outToServer;
+    ObjectInputStream inFromServer;
+    boolean isEmpty = true;
+
+    // Ensure there exists a connection for this router
+    for (Link p : ports) {
+      if (p != null) {
+        isEmpty = false;
+        break;
+      }
+    }
+    if (isEmpty) {
+      System.err.println("Warning: No routers connected to current router " + rd.simulatedIPAddress + ".");
+      return;
+    } 
+
+    // Send HELLO to every connected router
+    for (int i=0; i<ports.length; i++) {
+      
+      // Check that the ports element is not empty, otherwise skip to next array element
+      if (ports[i] == null) {
+        continue;
+      }
+
+      String serverName = ports[i].router2.processIPAddress;
+      short port = ports[i].router2.processPortNumber;
+
+      // TODO add any other checks to the specific neighbor
+      
+      try {
+        // initialize the HELLO packet to broadcast to neighbors
+        clientPacket = createPacket(ports[i], (short) 0);
+        
+        // send packet to server and wait for response
+        client = new Socket(serverName, port);
+
+        outToServer = new ObjectOutputStream(client.getOutputStream());
+        outToServer.writeObject(clientPacket);
+
+        inFromServer = new ObjectInputStream(client.getInputStream());
+        try {
+          serverPacket = (SOSPFPacket) inFromServer.readObject();
+        } catch (ClassNotFoundException e) {
+          System.err.println("Packet received is not correct or cannot be used.");
+          client.close();
+          outToServer.close();
+          inFromServer.close();
+          return;
+        } catch (ClassCastException e) {
+          System.err.println("Unexpected packet type.");
+          client.close();
+          outToServer.close();
+          inFromServer.close();
+          return;
+        }
+
+        // Check that response is a HELLO
+        if (serverPacket != null && serverPacket.sospfType == 0) {
+          System.out.println("received HELLO from " + serverPacket.srcIP + ";");
+          // If HELLO received, set status of R2 as TWO_WAY
+          ports[i].router2.status = RouterStatus.TWO_WAY;
+          System.out.println("set " + serverName + " STATE to TWO_WAY");
+
+          // Respond with HELLO packet for server to set state to TWO_WAY as well
+          outToServer.writeObject(clientPacket);
+        } else {
+          System.out.println("HELLO packet not returned. STATE unchanged.");
+          client.close();
+          outToServer.close();
+          inFromServer.close();
+          return;
+        }
+
+        // Close streams and socket
+        client.close();
+        outToServer.close();
+        inFromServer.close();
+
+      } catch (UnknownHostException e) {
+        System.err.println("Error: Socket could not be create. IP address of host could not be found.");
+        return;
+      } catch (IOException e) {
+        System.err.println("Error: I/O error occured during socket creation. Stream headers could not be written.");
+        return;
+      } 
+
+      // TODO initialize database sychronization process LSAUPDATE
+
+    }
 
   }
 
@@ -149,7 +270,7 @@ public class Router {
     
     // case 3: only one way attaches => not neighbors
     if ( twoWay == 0 && oneWay > 0 ) {
-      System.err.println("Ports are empty. No neighbors.");
+      System.err.println("No neighbors.");
     }
   }
 
