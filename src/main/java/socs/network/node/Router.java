@@ -99,21 +99,8 @@ public class Router {
     System.out.println("attach accepted");
   }
 
-  /** NOT NEEDED ANYMORE
-   * process request from the remote router. 
-   * For example: when router2 tries to attach router1. Router1 can decide whether it will accept this request. 
-   * The intuition is that if router2 is an unknown/anomaly router, it is always safe to reject the attached request from router2.
-   *
-   * private void requestHandler() {
-   * 
-   * }
-   */
-  private void requestHandler() {
-
-  }
-
   /**
-   * create packet to be broadcast
+   * helper: create packet to be broadcast
    */
   private SOSPFPacket createPacket(Link link, short pType) {
     SOSPFPacket p = new SOSPFPacket(
