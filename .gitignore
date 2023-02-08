@@ -2,3 +2,4 @@
 target/COMP535-1.0-SNAPSHOT-jar-with-dependencies.jar
 **/*.txt
 **/*.class
+out/**
