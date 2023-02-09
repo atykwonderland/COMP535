@@ -313,7 +313,7 @@ public class Router {
       isReader.close();
       br.close();
     } catch (Exception e) {
-      e.printStackTrace();
+      System.out.println(e.toString());
     }
   }
 

@@ -86,11 +86,14 @@ public class ServerRequestReceiver implements Runnable {
                 System.out.print(">> ");
             }
         } catch (IOException e) {
-            e.printStackTrace();
+            System.out.println(e.toString());
+            System.out.print(">> ");
         } catch (ClassNotFoundException e) {
-            e.printStackTrace();
+            System.out.println(e.toString());
+            System.out.print(">> ");
         } catch (MismatchedLinkException e) {
-            e.printStackTrace();
+            System.out.println(e.toString());
+            System.out.print(">> ");
         }
         
     }
