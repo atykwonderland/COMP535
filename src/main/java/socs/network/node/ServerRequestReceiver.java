@@ -8,6 +8,10 @@ import java.net.Socket;
 import socs.network.message.SOSPFPacket;
 import socs.network.util.MismatchedLinkException;
 
+/**
+ * Given a socket connection and server router, requests and communication can be written or read using 
+ * the streams
+ */
 public class ServerRequestReceiver implements Runnable {
     
     private Socket lSocket;

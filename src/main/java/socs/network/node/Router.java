@@ -23,7 +23,7 @@ public class Router {
     rd.processIPAddress = "127.0.0.1";
     lsd = new LinkStateDatabase(rd);
 
-    // Start server socket
+    // Start server side
     Thread serverSim = new Thread(new ServerSimulator(this, rd.processPortNumber));
     serverSim.start();
   }
@@ -149,8 +149,6 @@ public class Router {
 
       String serverName = ports[i].router2.processIPAddress;
       short port = ports[i].router2.processPortNumber;
-
-      // TODO add any other checks to the specific neighbor
       
       try {
         // initialize the HELLO packet to broadcast to neighbors
@@ -208,11 +206,7 @@ public class Router {
         System.err.println("Error: I/O error occured during socket creation. Stream headers could not be written.");
         return;
       } 
-
-      // TODO initialize database sychronization process LSAUPDATE
-
     }
-
   }
 
   /**
