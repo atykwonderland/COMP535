@@ -23,7 +23,7 @@ public class Router {
     rd.processIPAddress = "127.0.0.1";
     lsd = new LinkStateDatabase(rd);
 
-    // Start server socket
+    // Start server side
     Thread serverSim = new Thread(new ServerSimulator(this, rd.processPortNumber));
     serverSim.start();
   }
@@ -99,21 +99,8 @@ public class Router {
     System.out.println("attach accepted");
   }
 
-  /** NOT NEEDED ANYMORE
-   * process request from the remote router. 
-   * For example: when router2 tries to attach router1. Router1 can decide whether it will accept this request. 
-   * The intuition is that if router2 is an unknown/anomaly router, it is always safe to reject the attached request from router2.
-   *
-   * private void requestHandler() {
-   * 
-   * }
-   */
-  private void requestHandler() {
-
-  }
-
   /**
-   * create packet to be broadcast
+   * helper: create packet to be broadcast
    */
   private SOSPFPacket createPacket(Link link, short pType) {
     SOSPFPacket p = new SOSPFPacket(
@@ -162,8 +149,6 @@ public class Router {
 
       String serverName = ports[i].router2.processIPAddress;
       short port = ports[i].router2.processPortNumber;
-
-      // TODO add any other checks to the specific neighbor
       
       try {
         // initialize the HELLO packet to broadcast to neighbors
@@ -221,11 +206,7 @@ public class Router {
         System.err.println("Error: I/O error occured during socket creation. Stream headers could not be written.");
         return;
       } 
-
-      // TODO initialize database sychronization process LSAUPDATE
-
     }
-
   }
 
   /**
@@ -326,7 +307,7 @@ public class Router {
       isReader.close();
       br.close();
     } catch (Exception e) {
-      e.printStackTrace();
+      System.out.println(e.toString());
     }
   }
 

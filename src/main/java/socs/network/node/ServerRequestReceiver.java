@@ -8,6 +8,10 @@ import java.net.Socket;
 import socs.network.message.SOSPFPacket;
 import socs.network.util.MismatchedLinkException;
 
+/**
+ * Given a socket connection and server router, requests and communication can be written or read using 
+ * the streams
+ */
 public class ServerRequestReceiver implements Runnable {
     
     private Socket lSocket;
@@ -40,7 +44,7 @@ public class ServerRequestReceiver implements Runnable {
                         link = router.ports[i];
                         link.router2.status = RouterStatus.INIT;
                         isLinked = true;
-                        System.out.println("set " + packetReceived.srcIP + " state to INIT;");
+                        System.out.println("set " + packetReceived.srcIP + " STATE to INIT;");
                         break;
                     }
                 }
@@ -86,11 +90,14 @@ public class ServerRequestReceiver implements Runnable {
                 System.out.print(">> ");
             }
         } catch (IOException e) {
-            e.printStackTrace();
+            System.out.println(e.toString());
+            System.out.print(">> ");
         } catch (ClassNotFoundException e) {
-            e.printStackTrace();
+            System.out.println(e.toString());
+            System.out.print(">> ");
         } catch (MismatchedLinkException e) {
-            e.printStackTrace();
+            System.out.println(e.toString());
+            System.out.print(">> ");
         }
         
     }
