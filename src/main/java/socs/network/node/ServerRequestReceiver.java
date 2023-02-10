@@ -44,7 +44,7 @@ public class ServerRequestReceiver implements Runnable {
                         link = router.ports[i];
                         link.router2.status = RouterStatus.INIT;
                         isLinked = true;
-                        System.out.println("set " + packetReceived.srcIP + " state to INIT;");
+                        System.out.println("set " + packetReceived.srcIP + " STATE to INIT;");
                         break;
                     }
                 }
