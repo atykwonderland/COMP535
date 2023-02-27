@@ -21,6 +21,8 @@ public class Router {
     rd.simulatedIPAddress = config.getString("socs.network.router.ip");
     rd.processPortNumber = config.getShort("socs.network.router.portNumber");
     rd.processIPAddress = "127.0.0.1";
+
+    // Start LSD
     lsd = new LinkStateDatabase(rd);
 
     // Start server side
@@ -36,7 +38,8 @@ public class Router {
    * @param destinationIP the ip adderss of the destination simulated router
    */
   private void processDetect(String destinationIP) {
-
+    String path = this.lsd.getShortestPath(destinationIP);
+    System.out.println(path);
   }
 
   /**
