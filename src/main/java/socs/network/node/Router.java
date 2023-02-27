@@ -1,5 +1,6 @@
 package socs.network.node;
 
+import socs.network.message.LSA;
 import socs.network.message.SOSPFPacket;
 import socs.network.util.Configuration;
 import socs.network.util.MismatchedLinkException;
@@ -35,7 +36,7 @@ public class Router {
    * <p/>
    * format: source ip address  -> ip address -> ... -> destination ip
    *
-   * @param destinationIP the ip adderss of the destination simulated router
+   * @param destinationIP the ip address of the destination simulated router
    */
   private void processDetect(String destinationIP) {
     String path = this.lsd.getShortestPath(destinationIP);
@@ -119,6 +120,44 @@ public class Router {
     return p;
   }
 
+  /*
+   * updates the current LSD: creates new LSAs, forwards received LSAs
+   */
+  //TODO
+  void broadcastLSAUPDATE(SOSPFPacket toForward) {
+    if ( toForward == null ) {
+      // make new LSA
+      LSA L = new LSA();
+      L.linkStateID = this.rd.simulatedIPAddress;
+
+      //init seqNumber to 0
+      if (lsd._store.get(this.rd.simulatedIPAddress).lsaSeqNumber == Integer.MIN_VALUE) {
+          L.lsaSeqNumber = 0;
+      //else increment seqNumber
+      } else {
+          int seq = lsd._store.get(this.rd.simulatedIPAddress).lsaSeqNumber;
+          L.lsaSeqNumber = seq + 1;
+      }
+
+      // update LSD
+      lsd._store.put(L.linkStateID, L);
+
+      // send LSAUPDATE to all neighbors
+      for (int i = 0; i < ports.length; i++) {
+        if (ports[i] != null) {
+          
+        }
+      }
+    } else {
+      // forward packet to all neighbors
+      for (int i = 0; i < ports.length; i++) {
+        if (ports[i] != null) {
+          
+        }
+      }
+    }
+  }
+
   /**
    * broadcast Hello to neighbors
    */
@@ -196,6 +235,8 @@ public class Router {
           inFromServer.close();
           return;
         }
+
+        //TODO: broadcast the LSA update to neighbors
 
         // Close streams and socket
         client.close();
