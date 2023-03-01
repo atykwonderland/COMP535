@@ -3,9 +3,11 @@ package socs.network.node;
 import socs.network.message.LSA;
 import socs.network.message.LinkDescription;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
+import java.util.ListIterator;
 import java.util.Map;
 import java.util.Set;
 
@@ -35,7 +37,7 @@ public class LinkStateDatabase {
     return lowestDistanceLSA;
   }
 
-  private static void calculateMinimumDistance(LSA currentLSA, LSA neighbour, Map<LSA,Integer> distanceToSource) {
+  private static void calculateMinimumDistance(LSA currentLSA, LSA neighbour, Map<LSA,Integer> distanceToSource, Map<LSA,LSA> shortestEdges) {
     Integer neighbourDistance = (distanceToSource.get(neighbour) != null) ? distanceToSource.get(neighbour) : Integer.MAX_VALUE;
     Integer currentLSADistance = (distanceToSource.get(currentLSA) != null) ? distanceToSource.get(currentLSA) : Integer.MAX_VALUE;
     Integer edgeWeight = -1;
@@ -54,8 +56,38 @@ public class LinkStateDatabase {
     // if the distance to source of the neighbour previously recorded (or not recorded, meaning Integer.MAX_VALUE) is greater than 
     // the distance of the path with the currentLSA, then update
     if (currentLSADistance + edgeWeight < neighbourDistance) {
+      // update distance of neighbour node
       distanceToSource.put(neighbour, currentLSADistance + edgeWeight);
+      // update smallest weight edge from current node to neighbour node
+      shortestEdges.put(neighbour, currentLSA);
     }
+  }
+
+  //TODO: add some comments
+  private static String convertPathToString(LinkedList<LSA> path) {
+    String stringPath = "";
+    int weight = -1;
+    ListIterator<LSA> pathIter = path.listIterator(0);
+
+    while(pathIter.hasNext()) {
+      LSA currentLSA = pathIter.next();
+      stringPath = stringPath + currentLSA.linkStateID;
+
+      if (pathIter.hasNext()) {
+        stringPath = stringPath + " -> ";
+        int nextIndex = pathIter.nextIndex();
+        String nextLSA = path.get(nextIndex).linkStateID;
+
+        for (LinkDescription l: currentLSA.links) {
+          if (l.linkID.equals(nextLSA)) {
+            weight = l.tosMetrics;
+          }
+        }
+
+        stringPath = stringPath + "(" + weight + ") ";
+      }
+    }
+    return stringPath;
   }
 
   /**
@@ -69,6 +101,8 @@ public class LinkStateDatabase {
  
      // store neighbours and their distances of the source node
      Map<LSA, Integer> distanceToSource = new HashMap<LSA, Integer>();    // <node, weight>
+     LinkedList<LSA> shortestPath = new LinkedList<LSA>();
+     Map<LSA, LSA> shortestEdges = new HashMap<LSA, LSA>();               // <end node, start node> direction of edge "<--"
  
      // add the source node
      LSA source = _store.get(rd.simulatedIPAddress);
@@ -93,15 +127,30 @@ public class LinkStateDatabase {
 
         // if neighbour is already in settled list, then skip
         if (!settledLSAs.contains(neighbour)) {
-          calculateMinimumDistance(currentLSA, neighbour, distanceToSource);
+          calculateMinimumDistance(currentLSA, neighbour, distanceToSource, shortestEdges);
           unsettledLSAs.add(neighbour);
         }
        }  
        settledLSAs.add(currentLSA);
      }
-    
 
-    return null;
+     // Generate the shortest path
+     LSA lastLSA = _store.get(destinationIP);
+     
+     // Starting from the destinationIP router, add the routers that lead up to the current router
+     if (shortestEdges.get(lastLSA) != null) {
+      shortestPath.add(lastLSA);
+      while (shortestEdges.get(lastLSA) != null) {
+        lastLSA = shortestEdges.get(lastLSA);
+        shortestPath.add(lastLSA);
+      }
+      Collections.reverse(shortestPath);
+     } else {
+      return "Warning: There is no path.";
+     }
+     // Convert the path to a string to return
+
+    return convertPathToString(shortestPath);
   }
 
   //initialize the linkstate database by adding an entry about the router itself
