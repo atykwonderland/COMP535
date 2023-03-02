@@ -45,6 +45,7 @@ public class LinkStateDatabase {
     for (LinkDescription l: currentLSA.links) {
       if (l.linkID.equals(neighbour.linkStateID)) {
         edgeWeight = l.tosMetrics;
+        System.out.println("DIANDIAN this is edgeweight of " + l.linkID + " : " + edgeWeight);
       }
     }
 
@@ -106,22 +107,39 @@ public class LinkStateDatabase {
  
      // add the source node
      LSA source = _store.get(rd.simulatedIPAddress);
+     System.out.println("DIANDIAN print source: (should be this router ip)" + source.linkStateID);
      unsettledLSAs.add(source);
      distanceToSource.put(source, 0);
+
+     System.out.println("DIANDIAN unsettled LSAs size " + unsettledLSAs.size());
+
+     //DIANDIAN delete after:  prints all values from _store
+     for (String lsa : this._store.keySet()) {
+      String key = lsa;
+      String value = this._store.get(lsa).linkStateID;
+      System.out.println("DIANDIAN printing value from _store " + key + " " + value);
+     }
  
      // keep looping while there are still unsettled nodes
-     while (unsettledLSAs.size() != 0) {
+     while (unsettledLSAs.size() > 0) {
+      System.out.println("DIANDIAN is now in first while loop line 118");
        LSA currentLSA = getLowestDistanceLSA(unsettledLSAs, distanceToSource);
        unsettledLSAs.remove(currentLSA);
        // get neighbours of the node
        LinkedList<LSA> adjacentLSAs = new LinkedList<LSA>();
+
+       // DIANDIAN delete this after, print link size of the current LSA node
+       System.out.println("current lSA links size "+ currentLSA.links.size());
+
        for (LinkDescription l: currentLSA.links) {
         adjacentLSAs.add(_store.get(l.linkID));
+        System.out.println("DIANDIAN adjacent LSA: " + _store.get(l.linkID).linkStateID);
        }
        
        // iterate through each neighbor, and update the distance to the shortest from source for each
        // add to unsettled set if node has not been settled yet
        for (LSA neighbour: adjacentLSAs) {
+        System.out.println("DIANDIAN looping through neighbours. Current neighbour: " + neighbour.linkStateID);
         // if neighbour linkID is null, skip to next
         if (neighbour == null) continue;
 
@@ -146,6 +164,8 @@ public class LinkStateDatabase {
       }
       Collections.reverse(shortestPath);
      } else {
+      System.out.println("DIANDIAN" + shortestEdges.size());
+      // System.out.println("DIANDIAN _store size " + _store.get(destinationIP).linkStateID);
       return "Warning: There is no path.";
      }
      // Convert the path to a string to return
