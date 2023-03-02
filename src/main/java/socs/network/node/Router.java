@@ -1,6 +1,7 @@
 package socs.network.node;
 
 import socs.network.message.LSA;
+import socs.network.message.LinkDescription;
 import socs.network.message.SOSPFPacket;
 import socs.network.util.Configuration;
 import socs.network.util.MismatchedLinkException;
@@ -8,6 +9,7 @@ import socs.network.util.MismatchedLinkException;
 import java.io.*;
 import java.net.Socket;
 import java.net.UnknownHostException;
+import java.util.LinkedList;
 
 public class Router {
 
@@ -148,6 +150,20 @@ public class Router {
       } else {
           int seq = lsd._store.get(this.rd.simulatedIPAddress).lsaSeqNumber;
           L.lsaSeqNumber = seq + 1;
+      }
+
+      // get links from ports array to initialize the linkedlist of LSA
+      LinkedList<LinkDescription> tempLinks = new LinkedList<LinkDescription>();
+      for (int i=0; i<ports.length; i++) {
+        if (ports[i] != null && ports[i].router2.status != null) {
+          // create new LinkDescription to add to links
+          LinkDescription description = new LinkDescription();
+          description.linkID = ports[i].router2.simulatedIPAddress;
+          description.portNum = ports[i].router2.processPortNumber;
+          description.tosMetrics = ports[i].weight;
+          tempLinks.add(description);
+        }
+        L.links = tempLinks;
       }
 
       // update LSD

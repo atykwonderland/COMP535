@@ -125,6 +125,7 @@ public class LinkStateDatabase {
       System.out.println("DIANDIAN is now in first while loop line 118");
        LSA currentLSA = getLowestDistanceLSA(unsettledLSAs, distanceToSource);
        unsettledLSAs.remove(currentLSA);
+
        // get neighbours of the node
        LinkedList<LSA> adjacentLSAs = new LinkedList<LSA>();
 
@@ -132,16 +133,20 @@ public class LinkStateDatabase {
        System.out.println("current lSA links size "+ currentLSA.links.size());
 
        for (LinkDescription l: currentLSA.links) {
-        adjacentLSAs.add(_store.get(l.linkID));
-        System.out.println("DIANDIAN adjacent LSA: " + _store.get(l.linkID).linkStateID);
+        if (l.linkID != null) {
+          adjacentLSAs.add(_store.get(l.linkID));     // DIANDIAN linkID is the correct link but _store doesn't have it
+          System.out.println("DIANDIAN adjacent LSA: " + adjacentLSAs.get(0));
+          System.out.println("DIANDIAN adjacentLSAs list size: " + adjacentLSAs.size());
+        }
        }
        
        // iterate through each neighbor, and update the distance to the shortest from source for each
        // add to unsettled set if node has not been settled yet
        for (LSA neighbour: adjacentLSAs) {
-        System.out.println("DIANDIAN looping through neighbours. Current neighbour: " + neighbour.linkStateID);
         // if neighbour linkID is null, skip to next
         if (neighbour == null) continue;
+
+        System.out.println("DIANDIAN neighbour id : " + neighbour.linkStateID);
 
         // if neighbour is already in settled list, then skip
         if (!settledLSAs.contains(neighbour)) {
