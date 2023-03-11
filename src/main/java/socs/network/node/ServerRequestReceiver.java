@@ -4,7 +4,10 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
+import java.util.LinkedList;
 
+import socs.network.message.LSA;
+import socs.network.message.LinkDescription;
 import socs.network.message.SOSPFPacket;
 import socs.network.util.MismatchedLinkException;
 
@@ -88,10 +91,88 @@ public class ServerRequestReceiver implements Runnable {
                 lSocket.close();
 
                 System.out.print(">> ");
+            
+            // FOR LSD SYNCHRONIZATION/BROADCAST
+            } else if (packetReceived.sospfType == 1) {
+                LSA lsa = router.lsd._store.get(packetReceived.srcIP);
+                
+                // null means a new router, so it needs to broadcast itself
+                if (lsa == null || packetReceived.lsaArray.lastElement().lsaSeqNumber > lsa.lsaSeqNumber) {
+                    
+                    // check for link
+                    boolean isLinked = false;
+                    Link link = null;
+                    for (int i=0; i<4; i++) {
+                        if (router.ports[i] == null) {
+                            continue;
+                        } else if (router.ports[i].router2.simulatedIPAddress.equals(packetReceived.srcIP)) {
+                            link = router.ports[i];
+                            isLinked = true;
+                            break;
+                        }
+                    }
+                    
+                    // if linked, update link & LSA
+                    if (isLinked) {
+                        LinkedList<LinkDescription> links = packetReceived.lsaArray.lastElement().links;
+                        LinkDescription ld = null;
+                        for (LinkDescription l : links) {
+                            if(l.linkID.equals(router.rd.simulatedIPAddress)) {
+                                ld = l;
+                                break;
+                            }
+                        }
+                        
+                        if (ld != null) {
+                            // old weight => need to update
+                            if (ld.tosMetrics > -1 && ld.tosMetrics != link.weight) {
+                                link.weight = ld.tosMetrics;
+                                LSA currLSA = router.lsd._store.get(router.rd.simulatedIPAddress);
+                                // get the new link descriptions
+                                LinkedList<LinkDescription> newLD = new LinkedList<LinkDescription>();
+                                for (int i = 0; i < 4; i++) {
+                                    if (router.ports[i] != null && router.ports[i].router2.status != null) {
+                                        LinkDescription l = new LinkDescription();
+                                        l.linkID = router.ports[i].router2.simulatedIPAddress;
+                                        l.portNum = router.ports[i].router2.processPortNumber;
+                                        l.tosMetrics = router.ports[i].weight;
+                                        links.add(l);
+                                    }
+                                }
+                                // update
+                                currLSA.links = newLD;
+                                // broadcast update
+                                router.lsd._store.put(router.rd.simulatedIPAddress, currLSA);
+                                router.broadcastLSAUPDATE(null);
+                            }
+                        }
+                    }
+
+                    router.lsd._store.put(packetReceived.srcIP, packetReceived.lsaArray.lastElement());
+                
+                    // forward packet to all neighbors
+                    for (int i = 0; i < 4; i++) {
+                        if (router.ports[i] == null) {
+                            continue;
+                        } else {
+                            if (!router.ports[i].router2.simulatedIPAddress.equals(packetReceived.srcIP)) {
+                                // forward packet
+                                router.broadcastLSAUPDATE(packetReceived);
+                                // broadcast yourself
+                                if (lsa == null) {
+                                    router.broadcastLSAUPDATE(null);
+                                }
+                            }
+                        }
+                    }
+                }
             }
+            inFromClient.close();
+            outToClient.close();
+            lSocket.close();
         } catch (IOException e) {
-            System.out.println(e.toString());
-            System.out.print(">> ");
+            // System.out.println(e.toString());
+            // System.out.print(">> ");
         } catch (ClassNotFoundException e) {
             System.out.println(e.toString());
             System.out.print(">> ");

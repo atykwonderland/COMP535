@@ -1,5 +1,7 @@
 package socs.network.node;
 
+import socs.network.message.LSA;
+import socs.network.message.LinkDescription;
 import socs.network.message.SOSPFPacket;
 import socs.network.util.Configuration;
 import socs.network.util.MismatchedLinkException;
@@ -7,6 +9,7 @@ import socs.network.util.MismatchedLinkException;
 import java.io.*;
 import java.net.Socket;
 import java.net.UnknownHostException;
+import java.util.LinkedList;
 
 public class Router {
 
@@ -21,6 +24,8 @@ public class Router {
     rd.simulatedIPAddress = config.getString("socs.network.router.ip");
     rd.processPortNumber = config.getShort("socs.network.router.portNumber");
     rd.processIPAddress = "127.0.0.1";
+
+    // Start LSD
     lsd = new LinkStateDatabase(rd);
 
     // Start server side
@@ -33,10 +38,11 @@ public class Router {
    * <p/>
    * format: source ip address  -> ip address -> ... -> destination ip
    *
-   * @param destinationIP the ip adderss of the destination simulated router
+   * @param destinationIP the ip address of the destination simulated router
    */
   private void processDetect(String destinationIP) {
-
+    String path = this.lsd.getShortestPath(destinationIP);
+    System.out.println(path);
   }
 
   /**
@@ -112,8 +118,100 @@ public class Router {
       rd.simulatedIPAddress,
       rd.simulatedIPAddress
     );
-
     return p;
+  }
+  private SOSPFPacket createLSAPacket(Link link, short pType, LSA lsa) {
+    SOSPFPacket p = new SOSPFPacket(
+      rd.processIPAddress,
+      rd.processPortNumber,
+      rd.simulatedIPAddress,
+      link.router2.simulatedIPAddress,
+      pType,
+      rd.simulatedIPAddress,
+      rd.simulatedIPAddress,
+      lsa
+    );
+    return p;
+  }
+
+  /*
+   * updates the current LSD: creates new LSAs, forwards received LSAs
+   */
+  void broadcastLSAUPDATE(SOSPFPacket toForward) {
+    if ( toForward == null ) {
+      // make new LSA
+      LSA L = new LSA();
+      L.linkStateID = this.rd.simulatedIPAddress;
+
+      //init seqNumber to 0
+      if (lsd._store.get(this.rd.simulatedIPAddress).lsaSeqNumber == Integer.MIN_VALUE) {
+          L.lsaSeqNumber = 0;
+      //else increment seqNumber
+      } else {
+          int seq = lsd._store.get(this.rd.simulatedIPAddress).lsaSeqNumber;
+          L.lsaSeqNumber = seq + 1;
+      }
+
+      // get links from ports array to initialize the linkedlist of LSA
+      LinkedList<LinkDescription> tempLinks = new LinkedList<LinkDescription>();
+      for (int i=0; i<ports.length; i++) {
+        if (ports[i] != null && ports[i].router2.status != null) {
+          // create new LinkDescription to add to links
+          LinkDescription description = new LinkDescription();
+          description.linkID = ports[i].router2.simulatedIPAddress;
+          description.portNum = ports[i].router2.processPortNumber;
+          description.tosMetrics = ports[i].weight;
+          tempLinks.add(description);
+        }
+        L.links = tempLinks;
+      }
+
+      // update LSD
+      lsd._store.put(L.linkStateID, L);
+
+      // send LSAUPDATE to all neighbors
+      for (int i = 0; i < ports.length; i++) {
+        if (ports[i] != null) {
+          try {
+            Socket client = new Socket(ports[i].router2.processIPAddress, ports[i].router2.processPortNumber);
+            ObjectOutputStream outToServer = new ObjectOutputStream(client.getOutputStream());
+            SOSPFPacket LSAUPDATE = createLSAPacket(ports[i], (short) 1, L);
+            outToServer.writeObject(LSAUPDATE);
+
+            //clean
+            client.close();
+            outToServer.close();
+          } catch (UnknownHostException e) {
+            System.err.println("Error: Socket could not be create. IP address of host could not be found.");
+            return;
+          } catch (IOException e) {
+            System.err.println("Error: I/O error occured during socket creation. Stream headers could not be written.");
+            return;
+          } 
+        }
+      }
+    } else {
+      // forward packet to all neighbors
+      for (int i = 0; i < ports.length; i++) {
+        if (ports[i] != null) {
+          try {
+            Socket client = new Socket(ports[i].router2.processIPAddress, ports[i].router2.processPortNumber);
+            ObjectOutputStream outToServer = new ObjectOutputStream(client.getOutputStream());
+            outToServer.writeObject(toForward);
+
+            //clean
+            client.close();
+            outToServer.close();
+          } catch (UnknownHostException e) {
+            System.err.println("Error: Socket could not be create. IP address of host could not be found.");
+            return;
+          } catch (IOException e) {
+            System.err.println("Error: I/O error occured during socket creation. Stream headers could not be written.");
+            return;
+          } 
+        }
+      }
+    }
   }
 
   /**
@@ -194,13 +292,16 @@ public class Router {
           return;
         }
 
+        //broadcast LSAUPDATE to neighbors
+        broadcastLSAUPDATE(null);
+
         // Close streams and socket
         client.close();
         outToServer.close();
         inFromServer.close();
 
       } catch (UnknownHostException e) {
-        System.err.println("Error: Socket could not be create. IP address of host could not be found.");
+        System.err.println("Error: Socket could not be created. IP address of host could not be found.");
         return;
       } catch (IOException e) {
         System.err.println("Error: I/O error occured during socket creation. Stream headers could not be written.");
