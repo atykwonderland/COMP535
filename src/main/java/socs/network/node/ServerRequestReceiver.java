@@ -167,9 +167,12 @@ public class ServerRequestReceiver implements Runnable {
                     }
                 }
             }
+            inFromClient.close();
+            outToClient.close();
+            lSocket.close();
         } catch (IOException e) {
-            System.out.println(e.toString());
-            System.out.print(">> ");
+            // System.out.println(e.toString());
+            // System.out.print(">> ");
         } catch (ClassNotFoundException e) {
             System.out.println(e.toString());
             System.out.print(">> ");

@@ -34,11 +34,10 @@ public class LinkStateDatabase {
    */
   private static LSA getLowestDistanceLSA(Set<LSA> unsettledLSAs, Map<LSA, Integer> distanceToSource) {
     LSA lowestDistanceLSA = null;
-    int lowestDistance = Integer.MAX_VALUE;
     for (LSA lsa : unsettledLSAs) {
       int dist = (distanceToSource.get(lsa) != null) ? distanceToSource.get(lsa) : Integer.MAX_VALUE;
+      int lowestDistance = (distanceToSource.get(lowestDistanceLSA) != null) ? distanceToSource.get(lowestDistanceLSA) : Integer.MAX_VALUE;
       if (dist < lowestDistance) {
-        lowestDistance = dist;
         lowestDistanceLSA = lsa;
       }
     }
