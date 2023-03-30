@@ -411,8 +411,7 @@ public class Router {
     // Disconnect all connected routers
     for (Link port : this.ports) {
       if (port != null && port.router1.status == RouterStatus.TWO_WAY) {
-        // TODO: Uncomment when disconnect is implemented
-        // processDisconnect(0);
+        processDisconnect((short) 0);
       }
     }
     System.exit(0);
