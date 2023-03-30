@@ -166,6 +166,49 @@ public class ServerRequestReceiver implements Runnable {
                         }
                     }
                 }
+
+            // FOR PROCESS CONNECT
+            } else if (packetReceived.sospfType == 2) {
+
+            // FOR PROCESS DISCONNECT
+            } else if (packetReceived.sospfType == 3) {
+                // check for link
+                boolean isLinked = false;
+                Link link = null;
+                int port = -1;
+                for (int i=0; i<4; i++) {
+                    if (router.ports[i] == null) {
+                        continue;
+                    } else if (router.ports[i].router2.simulatedIPAddress.equals(packetReceived.srcIP)) {
+                        link = router.ports[i];
+                        isLinked = true;
+                        port = i;
+                        break;
+                    }
+                }
+                if (!isLinked) {
+                    // If there are no links (i.e. ports array empty or no matchin simulatedIPAddress), throw exception
+                    outToClient.writeObject("MismatchedLinkException");
+                    throw new MismatchedLinkException("packet received from " + packetReceived.srcIP + " is not linked to this router. No further actions.");
+                }
+
+                //create the response packet
+                SOSPFPacket responsePacket = new SOSPFPacket(
+                    router.rd.processIPAddress, 
+                    router.rd.processPortNumber,
+                    router.rd.simulatedIPAddress,
+                    link.router2.simulatedIPAddress,
+                    (short) 3, 
+                    router.rd.simulatedIPAddress, 
+                    packetReceived.srcIP
+                );
+
+                //send the response to the source so it can update it's link state database
+                outToClient.writeObject(responsePacket);
+
+                //proceed to update link state database
+                router.ports[port] = null;
+                router.broadcastLSAUPDATE(null);
             }
             inFromClient.close();
             outToClient.close();

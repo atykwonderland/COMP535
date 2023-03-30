@@ -46,16 +46,6 @@ public class Router {
   }
 
   /**
-   * disconnect with the router identified by the given destination ip address
-   * Notice: this command should trigger the synchronization of database
-   *
-   * @param portNumber the port number which the link attaches at
-   */
-  private void processDisconnect(short portNumber) {
-
-  }
-
-  /**
    * attach the link to the remote router, which is identified by the given simulated ip;
    * to establish the connection via socket, you need to indentify the process IP and process Port;
    * additionally, weight is the cost to transmitting data through the link
@@ -182,7 +172,7 @@ public class Router {
             client.close();
             outToServer.close();
           } catch (UnknownHostException e) {
-            System.err.println("Error: Socket could not be create. IP address of host could not be found.");
+            System.err.println("Error: Socket could not be created. IP address of host could not be found.");
             return;
           } catch (IOException e) {
             System.err.println("Error: I/O error occured during socket creation. Stream headers could not be written.");
@@ -319,6 +309,64 @@ public class Router {
    */
   private void processConnect(String processIP, short processPort, String simulatedIP, short weight) {
 
+  }
+
+/**
+   * disconnect with the router identified by the given destination ip address
+   * Notice: this command should trigger the synchronization of database
+   *
+   * @param portNumber the port number which the link attaches at
+   */
+  private void processDisconnect(short portNumber) {
+    //is port number valid AND not null AND two-way 
+    if (portNumber < 0 || 
+        portNumber > 3 || 
+        ports[portNumber] == null || 
+        ports[portNumber].router2.status != RouterStatus.TWO_WAY) {
+
+      System.err.println("Invalid port error.");
+      return;
+    }
+
+    RouterDescription remote = ports[portNumber].router2;
+
+    // try to delete links
+    boolean deleted = true;
+    // connect with router
+    try {
+      // send disconnect request packet
+      Socket client = new Socket(remote.processIPAddress, remote.processPortNumber);
+      ObjectOutputStream outToServer = new ObjectOutputStream(client.getOutputStream());
+      ObjectInputStream inFromServer = new ObjectInputStream(client.getInputStream());
+      SOSPFPacket disconnectRequest = createPacket(ports[portNumber], (short) 3);
+      outToServer.writeObject(disconnectRequest);
+
+      // see if response is also disconnect request packet
+      SOSPFPacket serverPacket = (SOSPFPacket) inFromServer.readObject();
+      if (serverPacket.sospfType == 3) {
+        deleted = true;
+      } else {
+        deleted =  false;
+      }
+      // Close streams and socket
+      client.close();
+      outToServer.close();
+      inFromServer.close();
+    } catch (ClassNotFoundException e){
+      System.err.println("Error: couldn't read message from server");
+    } catch (UnknownHostException e) {
+      System.err.println("Error: Socket could not be created. IP address of host could not be found.");
+    } catch (IOException e) {
+      System.err.println("Error: I/O error occured during socket creation. Stream headers could not be written.");
+    } 
+
+    // Broadcast disconnect update
+    if (deleted) {
+        ports[portNumber] = null;
+        broadcastLSAUPDATE(null);
+    } else {
+        System.err.println("Error: couldn't broadcast disconnect.");
+    }
   }
 
   /**
