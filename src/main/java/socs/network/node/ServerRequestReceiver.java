@@ -169,7 +169,58 @@ public class ServerRequestReceiver implements Runnable {
 
             // FOR PROCESS CONNECT
             } else if (packetReceived.sospfType == 2) {
+                // System.out.println("received HELLO from " + packetReceived.srcIP + ";");
 
+                // Change the status of the link to INIT
+                boolean isLinked = false;
+                Link link = null;
+                for (int i=0; i<4; i++) {
+                    if (router.ports[i].router2.simulatedIPAddress.equals(packetReceived.srcIP) && router.ports[i] != null) {
+                        link = router.ports[i];
+                        link.router2.status = RouterStatus.INIT;
+                        isLinked = true;
+                        break;
+                    }
+                }
+                if (!isLinked) {
+                    // If there are no links (i.e. ports array empty or no matchin simulatedIPAddress), throw exception
+                    outToClient.writeObject("MismatchedLinkException");
+                    throw new MismatchedLinkException("packet received from " + packetReceived.srcIP + " is not linked to this router. No further actions.");
+                }
+
+                // Otherwise, create CONNECT packet to set for TWO_WAY
+                SOSPFPacket clientPacket = new SOSPFPacket(
+                    router.rd.processIPAddress, 
+                    router.rd.processPortNumber,
+                    router.rd.simulatedIPAddress,
+                    link.router2.simulatedIPAddress,
+                    (short) 2, 
+                    router.rd.simulatedIPAddress, 
+                    packetReceived.srcIP
+                );
+
+                // Send return CONNECT packet to client
+                outToClient.writeObject(clientPacket);
+
+                // Wait for the second CONNECT packet from client
+                packetReceived = (SOSPFPacket) inFromClient.readObject();
+                if (packetReceived == null) {
+                    System.err.println("Error: Packet is null.");
+                    inFromClient.close();
+                    outToClient.close();
+                    lSocket.close();
+                    return;
+                } else if (packetReceived.sospfType == 2) {
+                    // if CONNECT packet received, set status to TWO_WAY
+                    link.router2.status = RouterStatus.TWO_WAY;
+                }
+
+                inFromClient.close();
+                outToClient.close();
+                lSocket.close();
+
+                System.out.print(">> ");
+                
             // FOR PROCESS DISCONNECT
             } else if (packetReceived.sospfType == 3) {
                 // check for link
