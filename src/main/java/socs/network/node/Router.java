@@ -360,7 +360,14 @@ public class Router {
    * disconnect with all neighbors and quit the program
    */
   private void processQuit() {
-
+    // Disconnect all connected routers
+    for (Link port : this.ports) {
+      if (port != null && port.router1.status == RouterStatus.TWO_WAY) {
+        // TODO: Uncomment when disconnect is implemented
+        // processDisconnect(0);
+      }
+    }
+    System.exit(0);
   }
 
   /**
