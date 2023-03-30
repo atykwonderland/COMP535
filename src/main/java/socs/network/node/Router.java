@@ -14,7 +14,7 @@ import java.util.LinkedList;
 public class Router {
 
   protected LinkStateDatabase lsd;
-  protected Boolean started = false;
+  protected boolean started;
 
   RouterDescription rd = new RouterDescription();
 
@@ -25,6 +25,7 @@ public class Router {
     rd.simulatedIPAddress = config.getString("socs.network.router.ip");
     rd.processPortNumber = config.getShort("socs.network.router.portNumber");
     rd.processIPAddress = "127.0.0.1";
+    started = false;
 
     // Start LSD
     lsd = new LinkStateDatabase(rd);
@@ -311,7 +312,7 @@ public class Router {
    * This command does trigger the link database synchronization
    */
   private void processConnect(String processIP, short processPort, String simulatedIP, short weight) {
-    if (started) {
+    if (!started) {
       System.err.println("Error: Router has not started the process. Please start the router using the command \"start\".");
       return;
     }
@@ -322,10 +323,12 @@ public class Router {
     // Get the index in ports of the previously attached remote router
     int index = -1;
     for (int i=0; i<4; i++) {
-      if (ports[i].router2.simulatedIPAddress.equals(simulatedIP)) {
+      if (ports[i] != null && ports[i].router2.simulatedIPAddress.equals(simulatedIP)) {
         index = i;
       }
     }
+
+    System.out.println("boop");
 
     // Start the connection and set to TWO_WAY
     Socket client;
@@ -364,10 +367,13 @@ public class Router {
         return;
       }
 
+      System.out.println("Yoop");
+
       // Check that response is a CONNECT packet
       if (serverPacket != null && serverPacket.sospfType == 2) {
         // If CONNECT received, set status of R2 as TWO_WAY
         ports[index].router2.status = RouterStatus.TWO_WAY;
+        ports[index].router1.status = RouterStatus.TWO_WAY;
 
         // Respond with CONNECT packet for server to set state to TWO_WAY as well
         outToServer.writeObject(clientPacket);
@@ -378,6 +384,8 @@ public class Router {
         inFromServer.close();
         return;
       }
+
+      System.out.println("Koop");
 
       //broadcast LSAUPDATE to neighbors
       broadcastLSAUPDATE(null);
@@ -531,7 +539,7 @@ public class Router {
                   cmdLine[3], Short.parseShort(cmdLine[4]));
         } else if (command.equals("start")) {
           processStart();
-        } else if (command.equals("connect ")) {
+        } else if (command.startsWith("connect ")) {
           String[] cmdLine = command.split(" ");
           processConnect(cmdLine[1], Short.parseShort(cmdLine[2]),
                   cmdLine[3], Short.parseShort(cmdLine[4]));

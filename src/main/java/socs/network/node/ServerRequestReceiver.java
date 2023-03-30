@@ -175,9 +175,10 @@ public class ServerRequestReceiver implements Runnable {
                 boolean isLinked = false;
                 Link link = null;
                 for (int i=0; i<4; i++) {
-                    if (router.ports[i].router2.simulatedIPAddress.equals(packetReceived.srcIP) && router.ports[i] != null) {
+                    if (router.ports[i] != null && router.ports[i].router2.simulatedIPAddress.equals(packetReceived.srcIP)) {
                         link = router.ports[i];
                         link.router2.status = RouterStatus.INIT;
+                        link.router1.status = RouterStatus.INIT;
                         isLinked = true;
                         break;
                     }
@@ -213,6 +214,7 @@ public class ServerRequestReceiver implements Runnable {
                 } else if (packetReceived.sospfType == 2) {
                     // if CONNECT packet received, set status to TWO_WAY
                     link.router2.status = RouterStatus.TWO_WAY;
+                    link.router2.status = RouterStatus.TWO_WAY;
                 }
 
                 inFromClient.close();
@@ -220,7 +222,7 @@ public class ServerRequestReceiver implements Runnable {
                 lSocket.close();
 
                 System.out.print(">> ");
-                
+
             // FOR PROCESS DISCONNECT
             } else if (packetReceived.sospfType == 3) {
                 // check for link
