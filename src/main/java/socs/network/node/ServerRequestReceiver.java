@@ -46,6 +46,7 @@ public class ServerRequestReceiver implements Runnable {
                     } else if (router.ports[i].router2.simulatedIPAddress.equals(packetReceived.srcIP)) {
                         link = router.ports[i];
                         link.router2.status = RouterStatus.INIT;
+                        link.router1.status = RouterStatus.INIT;
                         isLinked = true;
                         System.out.println("set " + packetReceived.srcIP + " STATE to INIT;");
                         break;
@@ -53,8 +54,27 @@ public class ServerRequestReceiver implements Runnable {
                 }
                 if (!isLinked) {
                     // If there are no links (i.e. ports array empty or no matchin simulatedIPAddress), throw exception
-                    outToClient.writeObject("MismatchedLinkException");
-                    throw new MismatchedLinkException("packet received from " + packetReceived.srcIP + " is not linked to this router. No further actions.");
+                    // outToClient.writeObject("MismatchedLinkException");
+                    // throw new MismatchedLinkException("packet received from " + packetReceived.srcIP + " is not linked to this router. No further actions.");
+                    int freePort = -1;
+                    for (int i=0; i<4; i++) {
+                        if (router.ports[i] == null) {
+                            freePort = i;
+                            break;
+                        }
+                    }
+                    if (freePort == -1) {
+                        outToClient.writeObject("MismatchedLinkException");
+                        throw new MismatchedLinkException("No more free ports for " + packetReceived.srcIP);
+                    } else {
+                        RouterDescription r2 = new RouterDescription(packetReceived.srcProcessIP, packetReceived.srcProcessPort, packetReceived.srcIP);
+                        router.ports[freePort] = new Link(router.rd, r2, packetReceived.weight);
+                        // set init status again
+                        link = router.ports[freePort];
+                        link.router2.status = RouterStatus.INIT;
+                        link.router1.status = RouterStatus.INIT;
+                        System.out.println("set " + packetReceived.srcIP + " STATE to INIT;");
+                    }
                 }
 
                 // Otherwise, create HELLO packet to set for TWO_WAY
@@ -83,6 +103,7 @@ public class ServerRequestReceiver implements Runnable {
                     // if HELLO packet received, set status to TWO_WAY
                     System.out.println("received HELLO from " + packetReceived.srcIP + ";");
                     link.router2.status = RouterStatus.TWO_WAY;
+                    link.router1.status = RouterStatus.TWO_WAY;
                     System.out.println("set " + packetReceived.srcIP + " STATE set to TWO_WAY;");
                 }
 
@@ -169,7 +190,6 @@ public class ServerRequestReceiver implements Runnable {
 
             // FOR PROCESS CONNECT
             } else if (packetReceived.sospfType == 2) {
-                // System.out.println("received HELLO from " + packetReceived.srcIP + ";");
 
                 // Change the status of the link to INIT
                 boolean isLinked = false;
@@ -184,9 +204,25 @@ public class ServerRequestReceiver implements Runnable {
                     }
                 }
                 if (!isLinked) {
-                    // If there are no links (i.e. ports array empty or no matchin simulatedIPAddress), throw exception
-                    outToClient.writeObject("MismatchedLinkException");
-                    throw new MismatchedLinkException("packet received from " + packetReceived.srcIP + " is not linked to this router. No further actions.");
+                    int freePort = -1;
+                    for (int i=0; i<4; i++) {
+                        if (router.ports[i] == null) {
+                            freePort = i;
+                            break;
+                        }
+                    }
+                    if (freePort == -1) {
+                        outToClient.writeObject("MismatchedLinkException");
+                        throw new MismatchedLinkException("No more free ports for " + packetReceived.srcIP);
+                    } else {
+                        RouterDescription r2 = new RouterDescription(packetReceived.srcProcessIP, packetReceived.srcProcessPort, packetReceived.srcIP);
+                        router.ports[freePort] = new Link(router.rd, r2, packetReceived.weight);
+                        // set init status again
+                        link = router.ports[freePort];
+                        link.router2.status = RouterStatus.INIT;
+                        link.router1.status = RouterStatus.INIT;
+                        System.out.println("set " + packetReceived.srcIP + " STATE to INIT;");
+                    }
                 }
 
                 // Otherwise, create CONNECT packet to set for TWO_WAY
@@ -214,7 +250,7 @@ public class ServerRequestReceiver implements Runnable {
                 } else if (packetReceived.sospfType == 2) {
                     // if CONNECT packet received, set status to TWO_WAY
                     link.router2.status = RouterStatus.TWO_WAY;
-                    link.router2.status = RouterStatus.TWO_WAY;
+                    link.router1.status = RouterStatus.TWO_WAY;
                 }
 
                 inFromClient.close();

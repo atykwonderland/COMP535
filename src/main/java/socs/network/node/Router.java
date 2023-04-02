@@ -355,7 +355,7 @@ public class Router {
     
     try {
       // initialize the CONNECT packet for the remote router
-      clientPacket = createPacket(ports[index], (short) 2);
+      clientPacket = createConnectPacket(ports[index], (short) 2, weight);
       
       // send packet to server and wait for response
       client = new Socket(serverName, port);
