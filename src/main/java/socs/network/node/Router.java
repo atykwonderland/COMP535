@@ -341,8 +341,6 @@ public class Router {
       }
     }
 
-    System.out.println("boop");
-
     // Start the connection and set to TWO_WAY
     Socket client;
     SOSPFPacket clientPacket;
@@ -380,14 +378,11 @@ public class Router {
         return;
       }
 
-      System.out.println("Yoop");
-
       // Check that response is a CONNECT packet
       if (serverPacket != null && serverPacket.sospfType == 2) {
         // If CONNECT received, set status of R2 as TWO_WAY
         ports[index].router2.status = RouterStatus.TWO_WAY;
         ports[index].router1.status = RouterStatus.TWO_WAY;
-        System.out.println("set to two way");
         // Respond with CONNECT packet for server to set state to TWO_WAY as well
         outToServer.writeObject(clientPacket);
       } else {
@@ -397,8 +392,6 @@ public class Router {
         inFromServer.close();
         return;
       }
-
-      System.out.println("Koop");
 
       //broadcast LSAUPDATE to neighbors
       broadcastLSAUPDATE(null);
