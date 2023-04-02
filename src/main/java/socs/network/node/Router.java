@@ -125,6 +125,19 @@ public class Router {
     );
     return p;
   }
+  private SOSPFPacket createConnectPacket(Link link, short pType, int weight) {
+    SOSPFPacket p = new SOSPFPacket(
+      rd.processIPAddress,
+      rd.processPortNumber,
+      rd.simulatedIPAddress,
+      link.router2.simulatedIPAddress,
+      pType,
+      rd.simulatedIPAddress,
+      rd.simulatedIPAddress,
+      weight
+    );
+    return p;
+  }
 
   /*
    * updates the current LSD: creates new LSAs, forwards received LSAs
@@ -374,7 +387,7 @@ public class Router {
         // If CONNECT received, set status of R2 as TWO_WAY
         ports[index].router2.status = RouterStatus.TWO_WAY;
         ports[index].router1.status = RouterStatus.TWO_WAY;
-
+        System.out.println("set to two way");
         // Respond with CONNECT packet for server to set state to TWO_WAY as well
         outToServer.writeObject(clientPacket);
       } else {
