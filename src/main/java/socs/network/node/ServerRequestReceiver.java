@@ -40,6 +40,7 @@ public class ServerRequestReceiver implements Runnable {
                 // Change the status of the link to INIT
                 boolean isLinked = false;
                 Link link = null;
+                int port = -1;
                 for (int i=0; i<4; i++) {
                     if (router.ports[i] == null) {
                         continue;
@@ -47,6 +48,7 @@ public class ServerRequestReceiver implements Runnable {
                         link = router.ports[i];
                         link.router2.status = RouterStatus.INIT;
                         link.router1.status = RouterStatus.INIT;
+                        port = i;
                         isLinked = true;
                         System.out.println("set " + packetReceived.srcIP + " STATE to INIT;");
                         break;
@@ -73,8 +75,13 @@ public class ServerRequestReceiver implements Runnable {
                         link = router.ports[freePort];
                         link.router2.status = RouterStatus.INIT;
                         link.router1.status = RouterStatus.INIT;
+                        port = freePort;
                         System.out.println("set " + packetReceived.srcIP + " STATE to INIT;");
                     }
+                }
+
+                if (port != -1) {
+                    router.ports[port] = link;
                 }
 
                 // Otherwise, create HELLO packet to set for TWO_WAY
@@ -107,6 +114,10 @@ public class ServerRequestReceiver implements Runnable {
                     System.out.println("set " + packetReceived.srcIP + " STATE set to TWO_WAY;");
                 }
 
+                if (port != -1) {
+                    router.ports[port] = link;
+                } 
+               
                 inFromClient.close();
                 outToClient.close();
                 lSocket.close();
@@ -194,11 +205,13 @@ public class ServerRequestReceiver implements Runnable {
                 // Change the status of the link to INIT
                 boolean isLinked = false;
                 Link link = null;
+                int port = -1;
                 for (int i=0; i<4; i++) {
                     if (router.ports[i] != null && router.ports[i].router2.simulatedIPAddress.equals(packetReceived.srcIP)) {
                         link = router.ports[i];
                         link.router2.status = RouterStatus.INIT;
                         link.router1.status = RouterStatus.INIT;
+                        port = i;
                         isLinked = true;
                         break;
                     }
@@ -221,8 +234,11 @@ public class ServerRequestReceiver implements Runnable {
                         link = router.ports[freePort];
                         link.router2.status = RouterStatus.INIT;
                         link.router1.status = RouterStatus.INIT;
+                        port = freePort;
                     }
                 }
+
+                router.ports[port] = link;
 
                 // Otherwise, create CONNECT packet to set for TWO_WAY
                 SOSPFPacket clientPacket = new SOSPFPacket(
@@ -251,6 +267,8 @@ public class ServerRequestReceiver implements Runnable {
                     link.router2.status = RouterStatus.TWO_WAY;
                     link.router1.status = RouterStatus.TWO_WAY;
                 }
+
+                router.ports[port] = link;
 
                 inFromClient.close();
                 outToClient.close();
@@ -297,6 +315,48 @@ public class ServerRequestReceiver implements Runnable {
                 //proceed to update link state database
                 router.ports[port] = null;
                 router.broadcastLSAUPDATE(null);
+            // FOR UPDATE WEIGHT
+            } else if (packetReceived.sospfType == 4) {
+                // Change the weight
+                System.out.println("PACKET RECEIVED WITH WEIGHT: " + packetReceived.weight); //DIANDIAN
+                boolean isLinked = false;
+                Link link = null;
+                int port = -1;  //DIANDIAN
+                for (int i=0; i<4; i++) {
+                    if (router.ports[i] != null && router.ports[i].router2.simulatedIPAddress.equals(packetReceived.srcIP)) {
+                        RouterDescription r2 = new RouterDescription(packetReceived.srcProcessIP, packetReceived.srcProcessPort, packetReceived.srcIP);
+                        router.ports[i] = new Link(router.rd, r2, packetReceived.weight);
+                        link = router.ports[i];
+                        port = i;   // DIANDIAN
+                        isLinked = true;
+                        break;
+                    }
+                }
+                if (!isLinked) {
+                    outToClient.writeObject("MismatchedLinkException");
+                    throw new MismatchedLinkException("Error: Cannot find link with simulatedIPAddress " + packetReceived.srcIP);
+                }
+
+                //DIANDIAN
+                System.out.println("This is the router.ports[i] on server side: " + router.ports[port].weight);
+
+                // Otherwise, create UPDATE packet to confirm weight update
+                SOSPFPacket clientPacket = new SOSPFPacket(
+                    router.rd.processIPAddress, 
+                    router.rd.processPortNumber,
+                    router.rd.simulatedIPAddress,
+                    link.router2.simulatedIPAddress,
+                    (short) 4, 
+                    router.rd.simulatedIPAddress, 
+                    packetReceived.srcIP
+                );
+
+                // Send return UPDATE packet to client
+                outToClient.writeObject(clientPacket);
+
+                inFromClient.close();
+                outToClient.close();
+                lSocket.close();
             }
             inFromClient.close();
             outToClient.close();
