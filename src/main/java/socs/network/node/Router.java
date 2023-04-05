@@ -240,8 +240,7 @@ public class Router {
       }
     }
     if (isEmpty) {
-      System.err.println("Warning: No routers connected to current router " + rd.simulatedIPAddress + ".");
-      return;
+      System.err.println("Process has started but no links are connected to this router " + rd.simulatedIPAddress + ".");
     } 
 
     // Send HELLO to every connected router
