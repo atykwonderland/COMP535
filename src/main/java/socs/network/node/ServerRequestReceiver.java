@@ -297,6 +297,77 @@ public class ServerRequestReceiver implements Runnable {
                 //proceed to update link state database
                 router.ports[port] = null;
                 router.broadcastLSAUPDATE(null);
+
+                // FOR UPDATE WEIGHT
+            } else if (packetReceived.sospfType == 4) {
+
+                // Change the status of the link to INIT
+                boolean isLinked = false;
+                Link link = null;
+                for (int i=0; i<4; i++) {
+                    if (router.ports[i] != null && router.ports[i].router2.simulatedIPAddress.equals(packetReceived.srcIP)) {
+                        link = router.ports[i];
+                        link.router2.status = RouterStatus.INIT;
+                        link.router1.status = RouterStatus.INIT;
+                        isLinked = true;
+                        break;
+                    }
+                }
+                if (!isLinked) {
+                    int freePort = -1;
+                    for (int i=0; i<4; i++) {
+                        if (router.ports[i] == null) {
+                            freePort = i;
+                            break;
+                        }
+                    }
+                    if (freePort == -1) {
+                        outToClient.writeObject("MismatchedLinkException");
+                        throw new MismatchedLinkException("No more free ports for " + packetReceived.srcIP);
+                    } else {
+                        RouterDescription r2 = new RouterDescription(packetReceived.srcProcessIP, packetReceived.srcProcessPort, packetReceived.srcIP);
+                        router.ports[freePort] = new Link(router.rd, r2, packetReceived.weight);
+                        // set init status again
+                        link = router.ports[freePort];
+                        link.router2.status = RouterStatus.INIT;
+                        link.router1.status = RouterStatus.INIT;
+                    }
+                }
+
+                // Otherwise, create UPDATE packet to set for TWO_WAY
+                SOSPFPacket clientPacket = new SOSPFPacket(
+                    router.rd.processIPAddress, 
+                    router.rd.processPortNumber,
+                    router.rd.simulatedIPAddress,
+                    link.router2.simulatedIPAddress,
+                    (short) 4, 
+                    router.rd.simulatedIPAddress, 
+                    packetReceived.srcIP
+                );
+
+                // Send return UPDATE packet to client
+                outToClient.writeObject(clientPacket);
+
+                // Wait for the second UPDATE packet from client
+                packetReceived = (SOSPFPacket) inFromClient.readObject();
+                if (packetReceived == null) {
+                    System.err.println("Error: Packet is null.");
+                    inFromClient.close();
+                    outToClient.close();
+                    lSocket.close();
+                    return;
+                } else if (packetReceived.sospfType == 2) {
+                    // if UPDATE packet received, set status to TWO_WAY
+                    link.router2.status = RouterStatus.TWO_WAY;
+                    link.router1.status = RouterStatus.TWO_WAY;
+                }
+
+                inFromClient.close();
+                outToClient.close();
+                lSocket.close();
+
+                System.out.print(">> ");
+
             }
             inFromClient.close();
             outToClient.close();

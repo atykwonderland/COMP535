@@ -520,7 +520,113 @@ public class Router {
    * update the weight of an attached link
    */
   private void updateWeight(String processIP, short processPort, String simulatedIP, short weight){
+    System.out.println("Inside update weight");
 
+    // Do the checks that processAttach does
+    RouterDescription remote = new RouterDescription(processIP, processPort, simulatedIP);
+
+    // case 1: processIP = simulatedIP
+    if ( simulatedIP.equals(this.rd.processIPAddress) ) {
+      System.err.println("update failed.");
+      return;
+    }
+
+    // case 2: port number out of range (0 and 65535)
+    if ( processPort < 0 || processPort > 65535 ) {
+      System.err.println("attach denied: invalid port number");
+      return;
+    }
+
+    System.out.println("This is simulatedIP " + simulatedIP);
+    // case 3: given simulatedIP is not attached
+    int index = -1;
+    for (int i=0; i<4; i++) {
+      if (ports[i] != null && ports[i].router2.simulatedIPAddress.equals(simulatedIP)) {
+        index = i;
+      }
+    }
+
+    if (index == -1) {
+      System.err.println("update weight failed: given simulatedIP is not attached.");
+      return;
+    }
+
+    // case 4: simulatedIP's weight is the same
+    if (ports[index].weight == weight) {
+      System.err.println("The weight is already the given value. No changes made.");
+      return;
+    }
+
+    // Grab the previous weight and print it
+    System.out.println("Current weight is: " + ports[index].weight);
+    // Set the new link
+    ports[index] = new Link(rd, remote, weight);
+
+    // Send packet to target router so they update as well
+    Socket client;
+    SOSPFPacket clientPacket;
+    SOSPFPacket serverPacket = null;
+    ObjectOutputStream outToServer;
+    ObjectInputStream inFromServer;
+
+    String serverName = ports[index].router2.processIPAddress;
+    short port = ports[index].router2.processPortNumber;
+
+    try {
+      // initialize the UPDATE packet for the remote router
+      clientPacket = createConnectPacket(ports[index], (short) 4, weight);
+
+      // send packet to server and wait for response
+      client = new Socket(serverName, port);
+
+      outToServer = new ObjectOutputStream(client.getOutputStream());
+      outToServer.writeObject(clientPacket);
+
+      inFromServer = new ObjectInputStream(client.getInputStream());
+      try {
+        serverPacket = (SOSPFPacket) inFromServer.readObject();
+      } catch (ClassNotFoundException e) {
+        System.err.println("Packet received is not correct or cannot be used.");
+        client.close();
+        outToServer.close();
+        inFromServer.close();
+        return;
+      } catch (ClassCastException e) {
+        System.err.println("Unexpected packet type.");
+        client.close();
+        outToServer.close();
+        inFromServer.close();
+        return;
+      }
+      // Check that response is a UPDATE packet
+      if (serverPacket != null && serverPacket.sospfType == 4) {
+        // If UPDATE received,
+        // set status as TWO_WAY
+        ports[index].router2.status = RouterStatus.TWO_WAY;
+        ports[index].router1.status = RouterStatus.TWO_WAY;
+        System.out.println("New weight is: " + ports[index].weight);
+      } else {
+        System.err.println("Error: Connection was unsuccessfull!");
+        client.close();
+        outToServer.close();
+        inFromServer.close();
+        return;
+      }
+
+      //broadcast LSAUPDATE to neighbors
+      broadcastLSAUPDATE(null);
+
+      // Close streams and socket
+      client.close();
+      outToServer.close();
+      inFromServer.close();
+    } catch (UnknownHostException e) {
+      System.err.println("Error: Socket could not be created. IP address of host could not be found.");
+      return;
+    } catch (IOException e) {
+      System.err.println("Error: I/O error occured during socket creation. Stream headers could not be written.");
+      return;
+    } 
   }
 
   public void terminal() {
@@ -551,6 +657,10 @@ public class Router {
         } else if (command.equals("neighbors")) {
           //output neighbors
           processNeighbors();
+        } else if (command.startsWith("update ")) {
+          String[] cmdLine = command.split(" ");
+          updateWeight(cmdLine[1], Short.parseShort(cmdLine[2]),
+                  cmdLine[3], Short.parseShort(cmdLine[4]));
         } else {
           //invalid command
           break;
