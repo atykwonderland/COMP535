@@ -20,3 +20,4 @@ $java -cp target/COMP535-1.0-SNAPSHOT-jar-with-dependencies.jar socs.network.Mai
 | detect simulatedIP | output the shortest path from current router to the target router with their weights                                                                                                                                                                                                                        |
 | connect processIP processPort simulatedIP weight | similar to attach command, but directly trigger the database synchronization without the necessity to run start on the origin router </br>**NOTE**: destination router must still run start before it can be detected. |
 | disconnect port | remove the link between this router and the remote one which is connected at port |
+| quit | exit the program |
