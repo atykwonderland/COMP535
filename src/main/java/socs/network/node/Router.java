@@ -557,8 +557,6 @@ public class Router {
       return;
     }
 
-    // Grab the previous weight and print it
-    System.out.println("Current weight is: " + ports[index].weight);
     // Set the new link
     ports[index] = new Link(rd, remote, weight);
 
@@ -604,7 +602,6 @@ public class Router {
         // set status as TWO_WAY
         ports[index].router2.status = RouterStatus.TWO_WAY;
         ports[index].router1.status = RouterStatus.TWO_WAY;
-        System.out.println("New weight is: " + ports[index].weight);
       } else {
         System.err.println("Error: Connection was unsuccessfull!");
         client.close();
