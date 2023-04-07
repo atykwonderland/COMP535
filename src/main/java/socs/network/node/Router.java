@@ -14,6 +14,7 @@ import java.util.LinkedList;
 public class Router {
 
   protected LinkStateDatabase lsd;
+  protected boolean started;
 
   RouterDescription rd = new RouterDescription();
 
@@ -24,6 +25,7 @@ public class Router {
     rd.simulatedIPAddress = config.getString("socs.network.router.ip");
     rd.processPortNumber = config.getShort("socs.network.router.portNumber");
     rd.processIPAddress = "127.0.0.1";
+    started = false;
 
     // Start LSD
     lsd = new LinkStateDatabase(rd);
@@ -43,16 +45,6 @@ public class Router {
   private void processDetect(String destinationIP) {
     String path = this.lsd.getShortestPath(destinationIP);
     System.out.println(path);
-  }
-
-  /**
-   * disconnect with the router identified by the given destination ip address
-   * Notice: this command should trigger the synchronization of database
-   *
-   * @param portNumber the port number which the link attaches at
-   */
-  private void processDisconnect(short portNumber) {
-
   }
 
   /**
@@ -133,6 +125,19 @@ public class Router {
     );
     return p;
   }
+  private SOSPFPacket createConnectPacket(Link link, short pType, int weight) {
+    SOSPFPacket p = new SOSPFPacket(
+      rd.processIPAddress,
+      rd.processPortNumber,
+      rd.simulatedIPAddress,
+      link.router2.simulatedIPAddress,
+      pType,
+      rd.simulatedIPAddress,
+      rd.simulatedIPAddress,
+      weight
+    );
+    return p;
+  }
 
   /*
    * updates the current LSD: creates new LSAs, forwards received LSAs
@@ -182,7 +187,7 @@ public class Router {
             client.close();
             outToServer.close();
           } catch (UnknownHostException e) {
-            System.err.println("Error: Socket could not be create. IP address of host could not be found.");
+            System.err.println("Error: Socket could not be created. IP address of host could not be found.");
             return;
           } catch (IOException e) {
             System.err.println("Error: I/O error occured during socket creation. Stream headers could not be written.");
@@ -225,6 +230,8 @@ public class Router {
     ObjectInputStream inFromServer;
     boolean isEmpty = true;
 
+    started = true;
+
     // Ensure there exists a connection for this router
     for (Link p : ports) {
       if (p != null) {
@@ -233,8 +240,7 @@ public class Router {
       }
     }
     if (isEmpty) {
-      System.err.println("Warning: No routers connected to current router " + rd.simulatedIPAddress + ".");
-      return;
+      System.err.println("Process has started but no links are connected to this router " + rd.simulatedIPAddress + ".");
     } 
 
     // Send HELLO to every connected router
@@ -318,7 +324,148 @@ public class Router {
    * This command does trigger the link database synchronization
    */
   private void processConnect(String processIP, short processPort, String simulatedIP, short weight) {
+    if (!started) {
+      System.err.println("Error: Router has not started the process. Please start the router using the command \"start\".");
+      return;
+    }
+    
+    // Attach the remote router to the current router
+    processAttach(processIP, processPort, simulatedIP, weight);
 
+    // Get the index in ports of the previously attached remote router
+    int index = -1;
+    for (int i=0; i<4; i++) {
+      if (ports[i] != null && ports[i].router2.simulatedIPAddress.equals(simulatedIP)) {
+        index = i;
+      }
+    }
+
+    // Start the connection and set to TWO_WAY
+    Socket client;
+    SOSPFPacket clientPacket;
+    SOSPFPacket serverPacket = null;
+    ObjectOutputStream outToServer;
+    ObjectInputStream inFromServer;
+
+    String serverName = ports[index].router2.processIPAddress;
+    short port = ports[index].router2.processPortNumber;
+    
+    try {
+      // initialize the CONNECT packet for the remote router
+      clientPacket = createConnectPacket(ports[index], (short) 2, weight);
+      
+      // send packet to server and wait for response
+      client = new Socket(serverName, port);
+
+      outToServer = new ObjectOutputStream(client.getOutputStream());
+      outToServer.writeObject(clientPacket);
+
+      inFromServer = new ObjectInputStream(client.getInputStream());
+      try {
+        serverPacket = (SOSPFPacket) inFromServer.readObject();
+      } catch (ClassNotFoundException e) {
+        System.err.println("Packet received is not correct or cannot be used.");
+        client.close();
+        outToServer.close();
+        inFromServer.close();
+        return;
+      } catch (ClassCastException e) {
+        System.err.println("Unexpected packet type.");
+        client.close();
+        outToServer.close();
+        inFromServer.close();
+        return;
+      }
+
+      // Check that response is a CONNECT packet
+      if (serverPacket != null && serverPacket.sospfType == 2) {
+        // If CONNECT received, set status of R2 as TWO_WAY
+        ports[index].router2.status = RouterStatus.TWO_WAY;
+        ports[index].router1.status = RouterStatus.TWO_WAY;
+        // Respond with CONNECT packet for server to set state to TWO_WAY as well
+        outToServer.writeObject(clientPacket);
+      } else {
+        System.err.println("Error: Connection was unsuccessfull!");
+        client.close();
+        outToServer.close();
+        inFromServer.close();
+        return;
+      }
+
+      //broadcast LSAUPDATE to neighbors
+      broadcastLSAUPDATE(null);
+
+      // Close streams and socket
+      client.close();
+      outToServer.close();
+      inFromServer.close();
+
+    } catch (UnknownHostException e) {
+      System.err.println("Error: Socket could not be created. IP address of host could not be found.");
+      return;
+    } catch (IOException e) {
+      System.err.println("Error: I/O error occured during socket creation. Stream headers could not be written.");
+      return;
+    } 
+
+  }
+
+/**
+   * disconnect with the router identified by the given destination ip address
+   * Notice: this command should trigger the synchronization of database
+   *
+   * @param portNumber the port number which the link attaches at
+   */
+  private void processDisconnect(short portNumber) {
+    //is port number valid AND not null AND two-way 
+    if (portNumber < 0 || 
+        portNumber > 3 || 
+        ports[portNumber] == null || 
+        ports[portNumber].router2.status != RouterStatus.TWO_WAY) {
+
+      System.err.println("Invalid port error.");
+      return;
+    }
+
+    RouterDescription remote = ports[portNumber].router2;
+
+    // try to delete links
+    boolean deleted = true;
+    // connect with router
+    try {
+      // send disconnect request packet
+      Socket client = new Socket(remote.processIPAddress, remote.processPortNumber);
+      ObjectOutputStream outToServer = new ObjectOutputStream(client.getOutputStream());
+      ObjectInputStream inFromServer = new ObjectInputStream(client.getInputStream());
+      SOSPFPacket disconnectRequest = createPacket(ports[portNumber], (short) 3);
+      outToServer.writeObject(disconnectRequest);
+
+      // see if response is also disconnect request packet
+      SOSPFPacket serverPacket = (SOSPFPacket) inFromServer.readObject();
+      if (serverPacket.sospfType == 3) {
+        deleted = true;
+      } else {
+        deleted =  false;
+      }
+      // Close streams and socket
+      client.close();
+      outToServer.close();
+      inFromServer.close();
+    } catch (ClassNotFoundException e){
+      System.err.println("Error: couldn't read message from server");
+    } catch (UnknownHostException e) {
+      System.err.println("Error: Socket could not be created. IP address of host could not be found.");
+    } catch (IOException e) {
+      System.err.println("Error: I/O error occured during socket creation. Stream headers could not be written.");
+    } 
+
+    // Broadcast disconnect update
+    if (deleted) {
+        ports[portNumber] = null;
+        broadcastLSAUPDATE(null);
+    } else {
+        System.err.println("Error: couldn't broadcast disconnect.");
+    }
   }
 
   /**
@@ -360,14 +507,123 @@ public class Router {
    * disconnect with all neighbors and quit the program
    */
   private void processQuit() {
-
+    // Disconnect all connected routers
+    for (Link port : this.ports) {
+      if (port != null && port.router1.status == RouterStatus.TWO_WAY) {
+        processDisconnect((short) 0);
+      }
+    }
+    System.exit(0);
   }
 
   /**
    * update the weight of an attached link
    */
   private void updateWeight(String processIP, short processPort, String simulatedIP, short weight){
+    System.out.println("Inside update weight");
 
+    // Do the checks that processAttach does
+    RouterDescription remote = new RouterDescription(processIP, processPort, simulatedIP);
+
+    // case 1: processIP = simulatedIP
+    if ( simulatedIP.equals(this.rd.processIPAddress) ) {
+      System.err.println("update failed.");
+      return;
+    }
+
+    // case 2: port number out of range (0 and 65535)
+    if ( processPort < 0 || processPort > 65535 ) {
+      System.err.println("attach denied: invalid port number");
+      return;
+    }
+
+    System.out.println("This is simulatedIP " + simulatedIP);
+    // case 3: given simulatedIP is not attached
+    int index = -1;
+    for (int i=0; i<4; i++) {
+      if (ports[i] != null && ports[i].router2.simulatedIPAddress.equals(simulatedIP)) {
+        index = i;
+      }
+    }
+
+    if (index == -1) {
+      System.err.println("update weight failed: given simulatedIP is not attached.");
+      return;
+    }
+
+    // case 4: simulatedIP's weight is the same
+    if (ports[index].weight == weight) {
+      System.err.println("The weight is already the given value. No changes made.");
+      return;
+    }
+
+    // Set the new link
+    ports[index] = new Link(rd, remote, weight);
+
+    // Send packet to target router so they update as well
+    Socket client;
+    SOSPFPacket clientPacket;
+    SOSPFPacket serverPacket = null;
+    ObjectOutputStream outToServer;
+    ObjectInputStream inFromServer;
+
+    String serverName = ports[index].router2.processIPAddress;
+    short port = ports[index].router2.processPortNumber;
+
+    try {
+      // initialize the UPDATE packet for the remote router
+      clientPacket = createConnectPacket(ports[index], (short) 4, weight);
+
+      // send packet to server and wait for response
+      client = new Socket(serverName, port);
+
+      outToServer = new ObjectOutputStream(client.getOutputStream());
+      outToServer.writeObject(clientPacket);
+
+      inFromServer = new ObjectInputStream(client.getInputStream());
+      try {
+        serverPacket = (SOSPFPacket) inFromServer.readObject();
+      } catch (ClassNotFoundException e) {
+        System.err.println("Packet received is not correct or cannot be used.");
+        client.close();
+        outToServer.close();
+        inFromServer.close();
+        return;
+      } catch (ClassCastException e) {
+        System.err.println("Unexpected packet type.");
+        client.close();
+        outToServer.close();
+        inFromServer.close();
+        return;
+      }
+      // Check that response is a UPDATE packet
+      if (serverPacket != null && serverPacket.sospfType == 4) {
+        // If UPDATE received,
+        // set status as TWO_WAY
+        ports[index].router2.status = RouterStatus.TWO_WAY;
+        ports[index].router1.status = RouterStatus.TWO_WAY;
+      } else {
+        System.err.println("Error: Connection was unsuccessfull!");
+        client.close();
+        outToServer.close();
+        inFromServer.close();
+        return;
+      }
+
+      //broadcast LSAUPDATE to neighbors
+      broadcastLSAUPDATE(null);
+
+      // Close streams and socket
+      client.close();
+      outToServer.close();
+      inFromServer.close();
+    } catch (UnknownHostException e) {
+      System.err.println("Error: Socket could not be created. IP address of host could not be found.");
+      return;
+    } catch (IOException e) {
+      System.err.println("Error: I/O error occured during socket creation. Stream headers could not be written.");
+      return;
+    } 
   }
 
   public void terminal() {
@@ -391,13 +647,17 @@ public class Router {
                   cmdLine[3], Short.parseShort(cmdLine[4]));
         } else if (command.equals("start")) {
           processStart();
-        } else if (command.equals("connect ")) {
+        } else if (command.startsWith("connect ")) {
           String[] cmdLine = command.split(" ");
           processConnect(cmdLine[1], Short.parseShort(cmdLine[2]),
                   cmdLine[3], Short.parseShort(cmdLine[4]));
         } else if (command.equals("neighbors")) {
           //output neighbors
           processNeighbors();
+        } else if (command.startsWith("update ")) {
+          String[] cmdLine = command.split(" ");
+          updateWeight(cmdLine[1], Short.parseShort(cmdLine[2]),
+                  cmdLine[3], Short.parseShort(cmdLine[4]));
         } else {
           //invalid command
           break;

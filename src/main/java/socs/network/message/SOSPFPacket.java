@@ -15,7 +15,7 @@ public class SOSPFPacket implements Serializable {
   public String dstIP;
 
   //common header
-  public short sospfType; //0 - HELLO, 1 - LinkState Update
+  public short sospfType; //0 - HELLO, 1 - LinkState Update, 2 - Connect, 3 - Disconnect, 4 - Update Weight
   public String routerID;
 
   //used by HELLO message to identify the sender of the message
@@ -25,6 +25,9 @@ public class SOSPFPacket implements Serializable {
 
   //used by LSAUPDATE
   public Vector<LSA> lsaArray = null;
+
+  //used by CONNECT
+  public int weight;
 
   public SOSPFPacket(String srcProcessIP, short srcProcessPort, String srcIP, String dstIP, short sospfType, String routerID, String neighborID) {
     this.srcProcessIP = srcProcessIP;
@@ -48,5 +51,16 @@ public class SOSPFPacket implements Serializable {
     Vector<LSA> L = new Vector<LSA>();
     L.add(lsa);
     this.lsaArray = L;
+  }
+
+  public SOSPFPacket(String srcProcessIP, short srcProcessPort, String srcIP, String dstIP, short sospfType, String routerID, String neighborID, int weight) {
+    this.srcProcessIP = srcProcessIP;
+    this.srcProcessPort = srcProcessPort;
+    this.srcIP = srcIP;
+    this.dstIP = dstIP;
+    this.sospfType = sospfType;
+    this.routerID = routerID;
+    this.neighborID = neighborID;
+    this.weight = weight;
   }
 }
